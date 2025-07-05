@@ -14,8 +14,9 @@ w3 = Web3(Web3.HTTPProvider(RPC_URL))
 
 # Vérification de la connexion
 if not w3.is_connected():
-    print("❌ Échec de connexion au réseau Flow EVM")
+    print("echec de connexion au réseau Flow EVM")
     exit(1)
+
 
 # ABI ERC-4626 complet
 ERC4626_ABI = [
@@ -272,7 +273,14 @@ class ERC4626Scanner:
         return valid_vaults
     
     def display_results(self, vaults: Dict):
-        """Affiche les résultats finaux"""
+        """Affiche les résultats finaux et les sauvegarde dans un fichier JSON"""
+        # Préparer les données pour le JSON
+        results_data = {
+            "scan_timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "total_vaults_found": len(vaults),
+            "vaults": []
+        }
+        
         if vaults:
             print(f"\nFound {len(vaults)} ERC-4626 vault(s):")
             
@@ -288,18 +296,45 @@ class ERC4626Scanner:
                     print(f"   Supply: {info['total_supply_formatted']:.4f} shares")
                 if 'share_price' in info:
                     print(f"   Share price: {info['share_price']:.6f}")
+                
+                # Préparer les données du vault pour le JSON
+                vault_data = {
+                    "address": address,
+                    "name": info.get('name', 'N/A'),
+                    "symbol": info.get('symbol', 'N/A'),
+                    "asset": info.get('asset', 'N/A'),
+                    "asset_name": info.get('asset_name', 'N/A'),
+                    "asset_symbol": info.get('asset_symbol', 'N/A'),
+                    "asset_decimals": info.get('asset_decimals', 'N/A'),
+                    "total_assets": str(info.get('totalAssets', 'N/A')),
+                    "total_supply": str(info.get('totalSupply', 'N/A')),
+                    "total_assets_formatted": info.get('total_assets_formatted', 'N/A'),
+                    "total_supply_formatted": info.get('total_supply_formatted', 'N/A'),
+                    "share_price": info.get('share_price', 'N/A'),
+                    "decimals": info.get('decimals', 'N/A')
+                }
+                results_data["vaults"].append(vault_data)
                     
         else:
             print("No ERC-4626 vaults found")
+        
+        # Sauvegarder les résultats dans un fichier JSON
+        try:
+            filename = f"erc4626_vaults_scan_{time.strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(results_data, f, indent=2, ensure_ascii=False, default=str)
+            print(f"\nRésultats sauvegardés dans: {filename}")
+        except Exception as e:
+            print(f"\nErreur lors de la sauvegarde: {e}")
 
 # Fonction principale
 def main():
     scanner = ERC4626Scanner(w3)
     
     # Scanner avec une plage plus large
-    vaults = scanner.scan_for_vaults(blocks_to_scan=100000)
+    vaults = scanner.scan_for_vaults(blocks_to_scan=20000)
     
-    # Afficher les résultats
+    # Afficher les jats
     scanner.display_results(vaults)
 
 if __name__ == "__main__":
