@@ -68,7 +68,7 @@ export default function ChatInterface({
             <Bot className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-semibold mb-2">Welcome to Flow DeFi Assistant</h3>
             <p className="text-sm max-w-md mx-auto">
-              I'm here to help you navigate DeFi on Flow blockchain. Ask me about swapping tokens, 
+              I&apos;m here to help you navigate DeFi on Flow blockchain. Ask me about swapping tokens, 
               staking, lending, or any other DeFi operations!
             </p>
           </div>

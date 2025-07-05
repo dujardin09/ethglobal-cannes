@@ -5,7 +5,6 @@ import { FlowProvider } from "@onflow/kit";
 import { SwapProvider } from "@/contexts/SwapContext";
 import flowJson from "../../flow.json";
 import { initFlowConfig } from "@/lib/flow-config";
-import { initFlowConfigDirect } from "@/lib/flow-config-direct";
 import { initFlowConfigLocal } from "@/lib/flow-config-local";
 import { useEffect } from "react";
 import "./globals.css";

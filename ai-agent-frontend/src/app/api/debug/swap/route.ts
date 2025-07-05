@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         tokenOut: tokens.find(t => t.address === tokenOutAddress)
       },
       pools: kittyPunchSwapService['pools'] || 'Private field',
-      routeFound: null as any
+      routeFound: null as unknown
     };
 
     // Test if we can access the private method

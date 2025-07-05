@@ -7,8 +7,8 @@ export async function GET() {
     const tests = {
       availableTokens: kittyPunchSwapService.getAvailableTokens(),
       mockBalances: await kittyPunchSwapService.getAllTokenBalances('0x1234567890123456'),
-      testQuote: null as any,
-      priceHistory: null as any
+      testQuote: null as unknown,
+      priceHistory: null as unknown
     };
 
     // Test getting a quote

@@ -1,9 +1,22 @@
 # KittyPunch Swap API Documentation
 
 ## Overview
-The KittyPunch Swap API provides a comprehensive set of endpoints for AI agents to perform token swaps on the Flow blockchain. All endpoints return JSON responses and handle proper error cases.
+The KittyPunch Swap API provides a comprehensive set of endpoints for AI agents to perform token swaps on the Flow blockchain. The API now uses **real Flow blockchain integration** with actual Cadence scripts for token balance queries and swap execution.
 
 **Base URL**: `http://localhost:3000/api`
+
+## Flow Blockchain Integration
+
+### Real Features
+- ✅ **FLOW Token Balance Queries**: Uses real Cadence scripts to query FLOW token balances from the blockchain
+- ✅ **Multi-Token Balance Optimization**: Efficient batch queries for multiple token balances
+- ✅ **Network-Aware Contract Management**: Supports emulator, testnet, and mainnet with proper contract addresses
+- ✅ **Storage and Fee Estimation**: Real storage usage queries for accurate fee calculations
+- ✅ **Transaction Submission**: Real Flow transaction execution with proper error handling
+
+### Mock Features (Ready for Real Integration)
+- 🔧 **Non-FLOW Token Balances**: Currently mocked for FUSD, USDC, USDT (ready for real contract integration)
+- 🔧 **DEX Integration**: Mock swap quotes and execution (ready for Increment, BloctoSwap, or other DEX integration)
 
 ## Available Endpoints
 
@@ -39,7 +52,13 @@ curl http://localhost:3000/api/tokens
 ### 2. Get Token Balances
 **GET** `/tokens/balances?userAddress={address}`
 
-Returns token balances for a specific user address.
+Returns token balances for a specific user address using **real Flow blockchain queries**.
+
+**Flow Integration Details:**
+- Uses optimized multi-token Cadence script for efficient balance retrieval
+- Falls back to individual queries if batch query fails
+- FLOW token balances are queried from real blockchain contracts
+- FUSD, USDC, USDT balances currently mocked (ready for real contract integration)
 
 ```bash
 curl "http://localhost:3000/api/tokens/balances?userAddress=0x1234567890123456"
@@ -50,8 +69,12 @@ curl "http://localhost:3000/api/tokens/balances?userAddress=0x1234567890123456"
 {
   "balances": {
     "0x0ae53cb6e3f42a79": "1000.00000000",
-    "0xe223d8a629e49c68": "500.000000"
-  }
+    "0xf233dcee88fe0abe": "100.00000000",
+    "0x0000000000000001": "500.000000",
+    "0x0000000000000002": "250.000000"
+  },
+  "source": "blockchain", // "blockchain" or "mock" to indicate data source
+  "network": "emulator"   // "emulator", "testnet", or "mainnet"
 }
 ```
 

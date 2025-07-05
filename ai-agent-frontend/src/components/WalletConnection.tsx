@@ -16,16 +16,6 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
 
   // Load tokens and balances when wallet connects
-  useEffect(() => {
-    loadTokens();
-  }, [loadTokens]);
-
-  useEffect(() => {
-    if (user?.addr) {
-      refreshBalances();
-    }
-  }, [user?.addr]);
-
   const refreshBalances = async () => {
     if (!user?.addr) return;
     
@@ -37,14 +27,19 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
     }
   };
 
+  useEffect(() => {
+    loadTokens();
+  }, [loadTokens]);
+
+  useEffect(() => {
+    if (user?.addr) {
+      refreshBalances();
+    }
+  }, [user?.addr, refreshBalances]);
+
   const formatBalance = (balance: string, decimals: number = 6): string => {
     const num = parseFloat(balance);
     return num.toFixed(Math.min(decimals, 6));
-  };
-
-  const getTokenSymbol = (address: string): string => {
-    const token = availableTokens.find(t => t.address === address);
-    return token?.symbol || 'Unknown';
   };
 
   const handleConnect = async () => {

@@ -18,7 +18,6 @@ export default function SwapInterface() {
     loadBalances,
     getQuote,
     refreshQuote,
-    checkQuoteValidity,
     executeSwap,
     clearQuote,
   } = useSwap();

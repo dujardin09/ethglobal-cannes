@@ -79,6 +79,7 @@ export default function Home() {
 
       setMessages(prev => [...prev, agentMessage]);
     } catch (error) {
+      console.error('Agent request failed:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: "Sorry, I'm having trouble processing your request right now. Please try again.",
@@ -101,7 +102,7 @@ export default function Home() {
       timestamp: new Date(),
       type: 'defi-action',
       defiAction: {
-        type: operation.type as any,
+        type: operation.type as 'swap' | 'stake' | 'lend' | 'borrow',
         details: operation
       }
     };
