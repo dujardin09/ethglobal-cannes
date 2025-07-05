@@ -5,21 +5,46 @@
 
 import * as fcl from '@onflow/fcl';
 
+// Cache for network connectivity to avoid excessive checks
+let networkConnectivityCache: { 
+  isConnected: boolean; 
+  lastCheck: number; 
+  cacheValidFor: number; 
+} = {
+  isConnected: false,
+  lastCheck: 0,
+  cacheValidFor: 30000 // Cache for 30 seconds
+};
+
+// Cache for FCL configuration to avoid excessive re-configuration
+let fclConfigured = false;
+
 // Configure FCL for server-side usage
 const configureServerFCL = () => {
   const accessNodeUrl = process.env.NEXT_PUBLIC_ACCESS_NODE_URL || 'http://localhost:8888';
   
-  // Always set the configuration to ensure it's available
-  fcl.config({
-    'accessNode.api': accessNodeUrl,
-  });
+  // Only configure once or if needed
+  if (!fclConfigured) {
+    fcl.config({
+      'accessNode.api': accessNodeUrl,
+    });
+    
+    console.log(`FCL configured with access node: ${accessNodeUrl}`);
+    fclConfigured = true;
+  }
   
-  console.log(`FCL configured with access node: ${accessNodeUrl}`);
   return accessNodeUrl;
 };
 
 // Check if Flow emulator/network is accessible
 const checkFlowNetworkConnectivity = async (): Promise<boolean> => {
+  // Check cache first
+  const now = Date.now();
+  if (networkConnectivityCache.isConnected && (now - networkConnectivityCache.lastCheck) < networkConnectivityCache.cacheValidFor) {
+    console.log('Using cached network connectivity status');
+    return networkConnectivityCache.isConnected;
+  }
+  
   try {
     // Configure FCL and get the access node URL
     const accessNodeUrl = configureServerFCL();
@@ -32,13 +57,16 @@ const checkFlowNetworkConnectivity = async (): Promise<boolean> => {
       });
       
       console.log('Flow network connectivity verified');
+      networkConnectivityCache = { isConnected: true, lastCheck: now, cacheValidFor: 30000 };
       return true;
     } catch (queryError) {
       console.warn('Flow query failed:', queryError);
+      networkConnectivityCache = { isConnected: false, lastCheck: now, cacheValidFor: 30000 };
       return false;
     }
   } catch (error) {
     console.warn('Flow network connectivity check failed:', error);
+    networkConnectivityCache = { isConnected: false, lastCheck: now, cacheValidFor: 30000 };
     return false;
   }
 };

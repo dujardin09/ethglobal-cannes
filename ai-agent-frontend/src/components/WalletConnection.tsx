@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useFlowCurrentUser } from '@onflow/kit';
 import { Wallet, LogOut, User, ExternalLink, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSwap } from '@/contexts/SwapContext';
+import { Token } from '@/types/swap';
 
 interface WalletConnectionProps {
   className?: string;
@@ -16,7 +17,7 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
 
   // Load tokens and balances when wallet connects
-  const refreshBalances = async () => {
+  const refreshBalances = useCallback(async () => {
     if (!user?.addr) return;
     
     setIsLoadingBalances(true);
@@ -25,22 +26,50 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
     } finally {
       setIsLoadingBalances(false);
     }
-  };
+  }, [user?.addr, loadBalances]);
 
   useEffect(() => {
     loadTokens();
-  }, [loadTokens]);
+  }, []); // Remove loadTokens dependency to prevent re-runs
 
   useEffect(() => {
     if (user?.addr) {
       refreshBalances();
     }
-  }, [user?.addr, refreshBalances]);
+  }, [user?.addr]); // Only depend on user address, not refreshBalances function
 
   const formatBalance = (balance: string, decimals: number = 6): string => {
     const num = parseFloat(balance);
     return num.toFixed(Math.min(decimals, 6));
   };
+
+  // Utility functions for detecting and formatting mock data
+  const isMockBalance = (balance: string): boolean => {
+    return balance.startsWith('MOCK_');
+  };
+
+  const formatBalanceDisplay = (balance: string, token?: Token) => {
+    if (isMockBalance(balance)) {
+      // Extract the numeric value from "MOCK_xxx.x" format
+      const mockValue = balance.replace('MOCK_', '');
+      return {
+        value: formatBalance(mockValue, token?.decimals),
+        isMock: true,
+        displayValue: mockValue
+      };
+    }
+    return {
+      value: formatBalance(balance, token?.decimals),
+      isMock: false,
+      displayValue: balance
+    };
+  };
+
+  const MockIndicator = ({ className = "" }: { className?: string }) => (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 ${className}`}>
+      MOCK
+    </span>
+  );
 
   const handleConnect = async () => {
     try {
@@ -109,17 +138,22 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
                   const token = availableTokens.find(t => t.address === address);
                   const balanceNum = parseFloat(balance);
                   const isZeroBalance = balanceNum === 0;
+                  const { value: formattedBalance, isMock, displayValue } = formatBalanceDisplay(balance, token);
                   
                   return (
                     <div key={address} className={`flex justify-between items-center p-3 rounded-lg border transition-all ${
                       isZeroBalance 
                         ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-60' 
+                        : isMock
+                        ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-700'
                         : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-700'
                     }`}>
                       <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                           isZeroBalance 
                             ? 'bg-gray-300 dark:bg-gray-600' 
+                            : isMock
+                            ? 'bg-gradient-to-r from-orange-500 to-red-500'
                             : 'bg-gradient-to-r from-blue-500 to-purple-500'
                         }`}>
                           <span className="text-sm font-bold text-white">
@@ -127,8 +161,11 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
                           </span>
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {token?.symbol || 'Unknown'}
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {token?.symbol || 'Unknown'}
+                            </span>
+                            {isMock && <MockIndicator />}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
                             {token?.name || 'Unknown Token'}
@@ -139,12 +176,17 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
                         <div className={`text-sm font-mono font-medium ${
                           isZeroBalance 
                             ? 'text-gray-400 dark:text-gray-500' 
+                            : isMock
+                            ? 'text-orange-600 dark:text-orange-400'
                             : 'text-gray-900 dark:text-gray-100'
                         }`}>
-                          {formatBalance(balance, token?.decimals)}
+                          {formattedBalance}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {token?.symbol}
+                          {isMock && (
+                            <span className="ml-1 text-red-500">(simulated)</span>
+                          )}
                         </div>
                       </div>
                     </div>

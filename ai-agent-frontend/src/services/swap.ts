@@ -69,9 +69,9 @@ class KittyPunchSwapService {
           // Map the script results to our token addresses
           balances[FLOW_TOKENS.FLOW.address] = multiBalances.FLOW || '0.0';
           balances[FLOW_TOKENS.FUSD.address] = multiBalances.FUSD || '0.0';
-          // For USDC and USDT, we'll use mock data until real contracts are integrated
-          balances[FLOW_TOKENS.USDC.address] = '500.0'; // Mock
-          balances[FLOW_TOKENS.USDT.address] = '250.0'; // Mock
+          // For USDC and USDT, clearly mark as mock data
+          balances[FLOW_TOKENS.USDC.address] = 'MOCK_500.0'; // Mock with clear indicator
+          balances[FLOW_TOKENS.USDT.address] = 'MOCK_250.0'; // Mock with clear indicator
         } else {
           throw new Error('No balances returned from multi-balance script');
         }
@@ -83,9 +83,9 @@ class KittyPunchSwapService {
         balances[FLOW_TOKENS.FLOW.address] = flowBalance;
         
         // For other tokens, we'll implement real balance queries as we add support for them
-        balances[FLOW_TOKENS.FUSD.address] = '100.0'; // Mock for now
-        balances[FLOW_TOKENS.USDC.address] = '500.0'; // Mock
-        balances[FLOW_TOKENS.USDT.address] = '250.0'; // Mock
+        balances[FLOW_TOKENS.FUSD.address] = 'MOCK_100.0'; // Mock for now
+        balances[FLOW_TOKENS.USDC.address] = 'MOCK_500.0'; // Mock
+        balances[FLOW_TOKENS.USDT.address] = 'MOCK_250.0'; // Mock
       }
       
       return balances;

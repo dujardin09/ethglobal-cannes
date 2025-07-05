@@ -33,13 +33,13 @@ export default function SwapInterface() {
   // Load tokens and balances on mount and when user changes
   useEffect(() => {
     loadTokens();
-  }, [loadTokens]);
+  }, []); // Remove loadTokens dependency
 
   useEffect(() => {
     if (user?.addr) {
       loadBalances(user.addr);
     }
-  }, [user?.addr, loadBalances]);
+  }, [user?.addr]); // Only depend on user address
 
   // Auto-get quote when inputs change
   useEffect(() => {
@@ -148,6 +148,34 @@ export default function SwapInterface() {
     return num.toFixed(6);
   };
 
+  // Utility functions for detecting and formatting mock data
+  const isMockBalance = (balance: string): boolean => {
+    return balance.startsWith('MOCK_');
+  };
+
+  const formatBalanceDisplay = (balance: string) => {
+    if (isMockBalance(balance)) {
+      // Extract the numeric value from "MOCK_xxx.x" format
+      const mockValue = balance.replace('MOCK_', '');
+      return {
+        value: formatBalance(mockValue),
+        isMock: true,
+        displayValue: mockValue
+      };
+    }
+    return {
+      value: formatBalance(balance),
+      isMock: false,
+      displayValue: balance
+    };
+  };
+
+  const MockIndicator = ({ className = "" }: { className?: string }) => (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 ${className}`}>
+      MOCK
+    </span>
+  );
+
   if (!user) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
@@ -234,9 +262,20 @@ export default function SwapInterface() {
             />
           </div>
           {tokenIn && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Balance: {formatBalance(getTokenBalance(tokenIn))} {tokenIn.symbol}
-            </p>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center space-x-2">
+              {(() => {
+                const balance = getTokenBalance(tokenIn);
+                const balanceDisplay = formatBalanceDisplay(balance);
+                return (
+                  <>
+                    <span>
+                      Balance: <span className={balanceDisplay.isMock ? 'text-orange-600 dark:text-orange-400' : ''}>{balanceDisplay.value}</span> {tokenIn.symbol}
+                    </span>
+                    {balanceDisplay.isMock && <MockIndicator />}
+                  </>
+                );
+              })()}
+            </div>
           )}
         </div>
 
@@ -280,9 +319,20 @@ export default function SwapInterface() {
             </div>
           </div>
           {tokenOut && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Balance: {formatBalance(getTokenBalance(tokenOut))} {tokenOut.symbol}
-            </p>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center space-x-2">
+              {(() => {
+                const balance = getTokenBalance(tokenOut);
+                const balanceDisplay = formatBalanceDisplay(balance);
+                return (
+                  <>
+                    <span>
+                      Balance: <span className={balanceDisplay.isMock ? 'text-orange-600 dark:text-orange-400' : ''}>{balanceDisplay.value}</span> {tokenOut.symbol}
+                    </span>
+                    {balanceDisplay.isMock && <MockIndicator />}
+                  </>
+                );
+              })()}
+            </div>
           )}
         </div>
 

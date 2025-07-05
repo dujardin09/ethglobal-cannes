@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { kittyPunchSwapService } from '@/services/swap';
 import { FlowUtils } from '@/lib/flow-integration';
 
+// Simple cache for balance requests to reduce excessive API calls
+const balanceCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 5000; // 5 seconds cache
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -16,6 +20,20 @@ export async function GET(request: NextRequest) {
 
     // Check if Flow network is available
     const isFlowNetworkAvailable = await FlowUtils.isFlowNetworkAvailable();
+
+    // Check cache first
+    if (balanceCache.has(userAddress)) {
+      const cachedResponse = balanceCache.get(userAddress)!;
+      const now = Date.now();
+
+      // If cached data is still valid, return it
+      if (now - cachedResponse.timestamp < CACHE_DURATION) {
+        return NextResponse.json(cachedResponse.data);
+      }
+
+      // If cache is stale, remove it
+      balanceCache.delete(userAddress);
+    }
 
     const balances = await kittyPunchSwapService.getAllTokenBalances(userAddress);
 
@@ -39,6 +57,9 @@ export async function GET(request: NextRequest) {
         lastUpdated: new Date().toISOString()
       }
     };
+
+    // Store in cache
+    balanceCache.set(userAddress, { data: response, timestamp: Date.now() });
 
     return NextResponse.json(response);
   } catch (error) {
