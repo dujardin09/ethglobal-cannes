@@ -320,7 +320,7 @@ class ERC4626Scanner:
         
         # Sauvegarder les résultats dans un fichier JSON
         try:
-            filename = f"erc4626_vaults_scan_{time.strftime('%Y%m%d_%H%M%S')}.json"
+            filename = f"ai-agent-frontend/data/erc4626_vaults_scan_{time.strftime('%Y%m%d_%H%M%S')}.json"
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(results_data, f, indent=2, ensure_ascii=False, default=str)
             print(f"\nRésultats sauvegardés dans: {filename}")
