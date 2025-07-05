@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Agent Crypto Flow avec IA et Mémoire de Conversation
+Agent Crypto Flow avec IA, Mémoire de Conversation et Endpoints REST
 
 Ce script déploie un agent uAgents capable de comprendre les intentions des utilisateurs
-liées aux opérations sur la blockchain Flow (stake, swap, balance) et de maintenir
-une conversation contextuelle.
+liées aux opérations sur la blockchain Flow et de maintenir une conversation contextuelle.
+Il expose des points d'accès REST pour une intégration facile avec des clients web.
 
 Modes d'exécution :
 1. Mode Officiel (par défaut) : python flow_agent.py
-   - Lance l'agent uAgents pour une utilisation en production (ex: backend pour un site web).
+   - Lance l'agent uAgents avec des points d'accès REST sur http://127.0.0.1:8001.
 
 2. Mode Interactif : python flow_agent.py interactive
    - Lance une interface en ligne de commande pour discuter directement avec la logique IA de l'agent.
@@ -33,8 +33,9 @@ from uagents import Agent, Context, Model
 from uagents.setup import fund_agent_if_low
 
 # --- Configuration Générale ---
-AGENT_SEED = "flow_crypto_agent_final_seed"
+AGENT_SEED = "flow_crypto_agent_final_seed_rest" # Changed seed slightly to avoid conflicts
 AGENT_PORT = 8001
+# AGENT_ENDPOINT is no longer needed for REST-only agents, but kept for context.
 AGENT_ENDPOINT = [f"http://127.0.0.1:{AGENT_PORT}/submit"]
 MAX_HISTORY_LENGTH = 10
 CRYPTO_FUNCTIONS_DIR = "crypto_functions"
@@ -47,6 +48,8 @@ if not OPENAI_API_KEY:
 # --- Config Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# === 2. MODÈLES DE DONNÉES (POUR LES REQUÊTES ET RÉPONSES) ===
 
 class ActionType(Enum):
     """Types d'actions que l'agent peut identifier."""
@@ -65,13 +68,21 @@ class ParsedAction:
     raw_message: str
     user_response: str = ""
 
+# --- Modèles pour les requêtes REST ---
 class UserMessage(Model):
-    """Message entrant d'un utilisateur vers l'agent."""
+    """Corps de la requête pour l'endpoint /talk."""
     content: str
     user_id: str
 
+class ConfirmationMessage(Model):
+    """Corps de la requête pour l'endpoint /confirm."""
+    action_id: str
+    confirmed: bool
+    user_id: str
+
+# --- Modèle pour les réponses REST ---
 class ActionResponse(Model):
-    """Réponse de l'agent à l'utilisateur."""
+    """Corps de la réponse pour tous les endpoints."""
     success: bool
     message: str
     function_call: Optional[str] = None
@@ -79,11 +90,7 @@ class ActionResponse(Model):
     requires_confirmation: bool = False
     action_id: Optional[str] = None
 
-class ConfirmationMessage(Model):
-    """Message de confirmation d'une action par l'utilisateur."""
-    action_id: str
-    confirmed: bool
-    user_id: str
+# === 3. CLASSE D'INTELLIGENCE ARTIFICIELLE ===
 
 class FlowCryptoAI:
     """
@@ -168,19 +175,22 @@ class FlowCryptoAI:
                 user_response=fallback_response
             ), ""
 
+# === 4. CLASSE DE L'AGENT uAGENTS AVEC ENDPOINTS REST ===
 
 class FlowCryptoAgent:
     """
     Agent uAgents qui gère la logique métier, la mémoire et l'exécution des fonctions crypto.
+    Expose des endpoints REST pour l'interaction.
     """
-    def __init__(self, name: str, seed: str, port: int, endpoint: List[str], api_key: str):
-        self.agent = Agent(name=name, seed=seed, port=port, endpoint=endpoint)
+    def __init__(self, name: str, seed: str, port: int, api_key: str):
+        self.agent = Agent(name=name, seed=seed, port=port)
         self.ai = FlowCryptoAI(api_key)
         self.pending_actions: Dict[str, ParsedAction] = {}
         self.conversation_histories: Dict[str, List[Dict[str, str]]] = {}
         
         logger.info(f"Agent '{self.agent.name}' initialisé avec l'adresse : {self.agent.address}")
-        
+        logger.info(f"Serveur HTTP démarré sur http://127.0.0.1:{port}")
+
         os.makedirs(CRYPTO_FUNCTIONS_DIR, exist_ok=True)
         self.initialize_typescript_functions()
         
@@ -188,12 +198,20 @@ class FlowCryptoAgent:
         fund_agent_if_low(str(self.agent.wallet.address()))
 
     def register_handlers(self):
-        """Enregistre les handlers de messages pour l'agent."""
+        """Enregistre les handlers de requêtes REST pour l'agent."""
         
-        @self.agent.on_message(model=UserMessage)
-        async def handle_user_message(ctx: Context, sender: str, msg: UserMessage):
-            history = self.conversation_histories.get(msg.user_id, [])
-            history.append({"role": "user", "content": msg.content})
+        # MODIFICATION : Remplacement de on_message par on_rest_post
+        @self.agent.on_rest_post("/talk", UserMessage, ActionResponse)
+        async def handle_talk_request(ctx: Context, request: UserMessage) -> ActionResponse:
+            """
+            Point d'accès principal pour la conversation.
+            Prend en entrée le message d'un utilisateur et son ID.
+            """
+            ctx.logger.info(f"Requête reçue sur /talk de l'utilisateur : {request.user_id}")
+            
+            # La logique interne reste la même
+            history = self.conversation_histories.get(request.user_id, [])
+            history.append({"role": "user", "content": request.content})
             history = history[-MAX_HISTORY_LENGTH:]
 
             parsed_action, _ = await self.ai.analyze_message(history)
@@ -205,34 +223,42 @@ class FlowCryptoAgent:
                     requires_confirmation=False
                 )
             else:
-                response = await self.process_action(parsed_action, msg.user_id)
+                response = await self.process_action(parsed_action, request.user_id)
             
             history.append({"role": "assistant", "content": response.message})
-            self.conversation_histories[msg.user_id] = history[-MAX_HISTORY_LENGTH:]
-            await ctx.send(sender, response)
+            self.conversation_histories[request.user_id] = history[-MAX_HISTORY_LENGTH:]
+            
+            # MODIFICATION : On retourne la réponse directement au lieu de ctx.send()
+            return response
         
-        @self.agent.on_message(model=ConfirmationMessage)
-        async def handle_confirmation(ctx: Context, sender: str, msg: ConfirmationMessage):
-            action = self.pending_actions.pop(msg.action_id, None)
+        # MODIFICATION : Nouveau handler pour la confirmation via REST
+        @self.agent.on_rest_post("/confirm", ConfirmationMessage, ActionResponse)
+        async def handle_confirmation_request(ctx: Context, request: ConfirmationMessage) -> ActionResponse:
+            """
+            Point d'accès pour confirmer ou annuler une action en attente.
+            """
+            ctx.logger.info(f"Requête de confirmation reçue sur /confirm pour l'action : {request.action_id}")
+            
+            action = self.pending_actions.pop(request.action_id, None)
             if not action:
-                await ctx.send(sender, ActionResponse(success=False, message="Action non trouvée ou expirée."))
-                return
+                return ActionResponse(success=False, message="Action non trouvée ou expirée.")
 
-            if msg.confirmed:
-                logger.info(f"Action {msg.action_id} confirmée par {msg.user_id}.")
+            if request.confirmed:
+                logger.info(f"Action {request.action_id} confirmée par {request.user_id}.")
                 function_call = self.generate_function_call(action)
                 response_msg = f"Parfait ! Votre action '{action.action_type.value}' a été confirmée et est en cours d'exécution. Appel de fonction : `{function_call}`"
                 response = ActionResponse(success=True, message=response_msg, function_call=function_call)
             else:
-                logger.info(f"Action {msg.action_id} annulée par {msg.user_id}.")
+                logger.info(f"Action {request.action_id} annulée par {request.user_id}.")
                 response = ActionResponse(success=True, message="Action annulée. N'hésitez pas si vous avez besoin d'autre chose !")
             
-            history = self.conversation_histories.get(msg.user_id, [])
-            history.append({"role": "user", "content": "oui" if msg.confirmed else "non"})
+            history = self.conversation_histories.get(request.user_id, [])
+            history.append({"role": "user", "content": "oui" if request.confirmed else "non"})
             history.append({"role": "assistant", "content": response.message})
-            self.conversation_histories[msg.user_id] = history[-MAX_HISTORY_LENGTH:]
+            self.conversation_histories[request.user_id] = history[-MAX_HISTORY_LENGTH:]
             
-            await ctx.send(sender, response)
+            # MODIFICATION : On retourne la réponse directement
+            return response
 
     async def process_action(self, action: ParsedAction, user_id: str) -> ActionResponse:
         """Valide et traite une action crypto (stake, swap, balance)."""
@@ -258,15 +284,18 @@ class FlowCryptoAgent:
         )
 
     def validate_action_parameters(self, action: ParsedAction) -> Optional[str]:
+        # Logique de validation inchangée
         return None
     
     def generate_confirmation_message(self, action: ParsedAction) -> str:
+        # Logique de génération de message inchangée
         if action.action_type == ActionType.STAKE:
             params = action.parameters
-            return f"⚠️ Confirmation requise : Staker {params.get('amount')} FLOW avec le validateur {params.get('validator')} ? (oui/non)"
-        return "Confirmez-vous cette action ?"
+            return f"⚠️ Confirmation requise : Staker {params.get('amount')} FLOW avec le validateur {params.get('validator')} ? Répondez à l'endpoint /confirm."
+        return "Confirmez-vous cette action ? Répondez à l'endpoint /confirm."
 
     def generate_function_call(self, action: ParsedAction) -> str:
+        # Logique de génération d'appel de fonction inchangée
         if action.action_type == ActionType.STAKE:
             params = action.parameters
             return f"stake_tokens({params.get('amount')}, \"{params.get('validator')}\")"
@@ -284,6 +313,7 @@ class FlowCryptoAgent:
         """Lance le cycle de vie de l'agent."""
         self.agent.run()
 
+# === 5. MODES D'EXÉCUTION (INTERACTIF, TEST, OFFICIEL) ===
 
 async def run_interactive_mode():
     """Lance un chat interactif en console pour tester la logique de l'IA."""
@@ -364,16 +394,24 @@ def main():
     elif "test" in sys.argv:
         asyncio.run(run_test_mode())
     else:
-        print("--- Mode Officiel ---")
-        print("Lancement de l'agent uAgents. Prêt à recevoir des requêtes.")
-        print(f"Pour lancer en mode interactif, utilisez : python {sys.argv[0]} interactive")
-        print(f"Pour lancer les tests, utilisez : python {sys.argv[0]} test")
+        print("--- Mode Officiel (REST) ---")
+        print(f"Lancement de l'agent uAgents sur le port {AGENT_PORT}. Prêt à recevoir des requêtes HTTP.")
         
+        # MODIFICATION : Instructions pour utiliser les endpoints REST
+        print("\nEndpoints disponibles :")
+        print(f"  - POST http://127.0.0.1:{AGENT_PORT}/talk")
+        print(f"  - POST http://127.0.0.1:{AGENT_PORT}/confirm")
+        
+        print("\nExemple de requête pour discuter avec l'agent (remplacez user_id):")
+        print(f"  curl -X POST -H \"Content-Type: application/json\" -d '{{\"content\": \"Salut !\", \"user_id\": \"user123\"}}' http://127.0.0.1:{AGENT_PORT}/talk")
+        
+        print("\nExemple de requête pour confirmer une action (remplacez les valeurs):")
+        print(f"  curl -X POST -H \"Content-Type: application/json\" -d '{{\"action_id\": \"user123_xxxx\", \"confirmed\": true, \"user_id\": \"user123\"}}' http://127.0.0.1:{AGENT_PORT}/confirm")
+
         agent = FlowCryptoAgent(
             name="flow_crypto_agent",
             seed=AGENT_SEED,
             port=AGENT_PORT,
-            endpoint=AGENT_ENDPOINT,
             api_key=OPENAI_API_KEY
         )
         agent.run()
