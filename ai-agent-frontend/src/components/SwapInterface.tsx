@@ -2,12 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSwap } from '@/contexts/SwapContext';
-import { useFlowCurrentUser } from '@onflow/kit';
+import * as fcl from '@onflow/fcl';
 import { Token } from '@/types/swap';
 import { ArrowDownIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
+interface FlowUser {
+  addr?: string;
+  loggedIn?: boolean;
+  cid?: string;
+}
+
 export default function SwapInterface() {
-  const { user } = useFlowCurrentUser();
+  const [user, setUser] = useState<FlowUser>({});
   const {
     availableTokens,
     tokenBalances,
@@ -22,6 +28,17 @@ export default function SwapInterface() {
     clearQuote,
   } = useSwap();
 
+  // Subscribe to FCL auth state changes
+  useEffect(() => {
+    const unsubscribe = fcl.currentUser().subscribe((currentUser: FlowUser) => {
+      setUser(currentUser);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
   const [tokenIn, setTokenIn] = useState<Token | null>(null);
   const [tokenOut, setTokenOut] = useState<Token | null>(null);
   const [amountIn, setAmountIn] = useState('');
@@ -33,13 +50,13 @@ export default function SwapInterface() {
   // Load tokens and balances on mount and when user changes
   useEffect(() => {
     loadTokens();
-  }, []); // Remove loadTokens dependency
+  }, [loadTokens]);
 
   useEffect(() => {
     if (user?.addr) {
       loadBalances(user.addr);
     }
-  }, [user?.addr]); // Only depend on user address
+  }, [user?.addr, loadBalances]);
 
   // Auto-get quote when inputs change
   useEffect(() => {

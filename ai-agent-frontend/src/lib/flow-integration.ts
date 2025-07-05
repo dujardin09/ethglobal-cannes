@@ -13,7 +13,7 @@ let networkConnectivityCache: {
 } = {
   isConnected: false,
   lastCheck: 0,
-  cacheValidFor: 30000 // Cache for 30 seconds
+  cacheValidFor: 60000 // Cache for 60 seconds (increased from 30)
 };
 
 // Cache for FCL configuration to avoid excessive re-configuration
@@ -41,7 +41,10 @@ const checkFlowNetworkConnectivity = async (): Promise<boolean> => {
   // Check cache first
   const now = Date.now();
   if (networkConnectivityCache.isConnected && (now - networkConnectivityCache.lastCheck) < networkConnectivityCache.cacheValidFor) {
-    console.log('Using cached network connectivity status');
+    // Only log every 5 minutes to reduce spam
+    if ((now - networkConnectivityCache.lastCheck) > 300000) {
+      console.log('Using cached network connectivity status');
+    }
     return networkConnectivityCache.isConnected;
   }
   
@@ -57,16 +60,16 @@ const checkFlowNetworkConnectivity = async (): Promise<boolean> => {
       });
       
       console.log('Flow network connectivity verified');
-      networkConnectivityCache = { isConnected: true, lastCheck: now, cacheValidFor: 30000 };
+      networkConnectivityCache = { isConnected: true, lastCheck: now, cacheValidFor: 60000 };
       return true;
     } catch (queryError) {
       console.warn('Flow query failed:', queryError);
-      networkConnectivityCache = { isConnected: false, lastCheck: now, cacheValidFor: 30000 };
+      networkConnectivityCache = { isConnected: false, lastCheck: now, cacheValidFor: 60000 };
       return false;
     }
   } catch (error) {
     console.warn('Flow network connectivity check failed:', error);
-    networkConnectivityCache = { isConnected: false, lastCheck: now, cacheValidFor: 30000 };
+    networkConnectivityCache = { isConnected: false, lastCheck: now, cacheValidFor: 60000 };
     return false;
   }
 };

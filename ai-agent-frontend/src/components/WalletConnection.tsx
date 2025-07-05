@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useFlowCurrentUser } from '@onflow/kit';
+import * as fcl from '@onflow/fcl';
 import { Wallet, LogOut, User, ExternalLink, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSwap } from '@/contexts/SwapContext';
@@ -11,10 +11,35 @@ interface WalletConnectionProps {
   className?: string;
 }
 
+interface FlowUser {
+  addr?: string;
+  loggedIn?: boolean;
+  cid?: string;
+}
+
 export default function WalletConnection({ className }: WalletConnectionProps) {
-  const { user, authenticate, unauthenticate } = useFlowCurrentUser();
+  const [user, setUser] = useState<FlowUser>({});
   const { availableTokens, tokenBalances, loadTokens, loadBalances } = useSwap();
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+
+  // Subscribe to FCL auth state changes
+  useEffect(() => {
+    const unsubscribe = fcl.currentUser().subscribe((currentUser: FlowUser) => {
+      setUser(currentUser);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  const authenticate = () => {
+    fcl.authenticate();
+  };
+
+  const unauthenticate = () => {
+    fcl.unauthenticate();
+  };
 
   // Load tokens and balances when wallet connects
   const refreshBalances = useCallback(async () => {
@@ -30,13 +55,13 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
 
   useEffect(() => {
     loadTokens();
-  }, []); // Remove loadTokens dependency to prevent re-runs
+  }, [loadTokens]);
 
   useEffect(() => {
     if (user?.addr) {
       refreshBalances();
     }
-  }, [user?.addr]); // Only depend on user address, not refreshBalances function
+  }, [user?.addr, refreshBalances]);
 
   const formatBalance = (balance: string, decimals: number = 6): string => {
     const num = parseFloat(balance);

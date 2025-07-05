@@ -1,17 +1,34 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
-import { useFlowCurrentUser } from '@onflow/kit';
+import React, { useState, useCallback, useEffect } from 'react';
+import * as fcl from '@onflow/fcl';
 import ChatInterface from '@/components/ChatInterface';
 import WalletConnection from '@/components/WalletConnection';
 import DefiOperationsPanel from '@/components/DefiOperationsPanel';
 import NetworkStatusIndicator from '@/components/NetworkStatusIndicator';
 import { Message, DefiOperation } from '@/types';
 
+interface FlowUser {
+  addr?: string;
+  loggedIn?: boolean;
+  cid?: string;
+}
+
 export default function Home() {
-  const { user } = useFlowCurrentUser();
+  const [user, setUser] = useState<FlowUser>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Subscribe to FCL auth state changes
+  useEffect(() => {
+    const unsubscribe = fcl.currentUser().subscribe((currentUser: FlowUser) => {
+      setUser(currentUser);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   // Mock AI response function - replace with actual AI agent integration
   const generateAgentResponse = useCallback(async (userMessage: string): Promise<string> => {
