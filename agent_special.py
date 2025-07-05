@@ -32,6 +32,7 @@ class ActionType(Enum):
     STAKE = "stake"
     SWAP = "swap"
     BALANCE = "balance"
+    CONVERSATION = "conversation"  # Nouveau type pour les conversations normales
     UNKNOWN = "unknown"
 
 @dataclass
@@ -40,6 +41,7 @@ class ParsedAction:
     confidence: float
     parameters: Dict[str, Any]
     raw_message: str
+    user_response: str = ""  # Nouveau champ pour la réponse utilisateur
 
 class UserMessage(Model):
     content: str
@@ -67,26 +69,29 @@ class FlowCryptoAI:
         self.system_prompt = """
         Tu es un assistant crypto spécialisé dans l'analyse d'intentions pour une plateforme Flow.
         
-        Ton rôle est d'analyser un message utilisateur et de déterminer :
-        1. L'action souhaitée (stake, swap, balance check)
-        2. Les paramètres nécessaires (montants, tokens, validators, adresses)
-        3. Le niveau de confiance de ton analyse
+        Ton rôle est double :
+        1. Analyser si le message est une ACTION crypto spécifique (stake, swap, balance check)
+        2. Fournir une réponse conversationnelle appropriée
         
-        Règles importantes :
+        ACTIONS CRYPTO DÉTECTABLES :
+        - stake : staking de tokens (paramètres: amount, validator)
+        - swap : échange de tokens (paramètres: from_token, to_token, amount)
+        - balance : vérification de solde (paramètres: wallet_address)
+        - conversation : discussion générale, questions, salutations
+        - unknown : intention vraiment pas claire
+        
+        RÈGLES IMPORTANTES :
+        - Si c'est une ACTION crypto claire, action_type = "stake"/"swap"/"balance"
+        - Si c'est une conversation normale, action_type = "conversation"
+        - TOUJOURS inclure un user_response adapté et naturel
         - Extrait UNIQUEMENT les informations explicitement mentionnées
-        - Si des informations manquent, indique-le clairement
-        - Retourne un JSON structuré avec les champs : action_type, confidence, parameters, missing_info
         - Les montants doivent être des nombres (float)
         - Les noms de tokens/validators en minuscules
         - Les adresses wallet doivent commencer par 0x
         
-        Actions possibles :
-        - stake : staking de tokens (paramètres: amount, validator)
-        - swap : échange de tokens (paramètres: from_token, to_token, amount)
-        - balance : vérification de solde (paramètres: wallet_address)
-        - unknown : intention non claire
+        EXEMPLES DE RÉPONSES :
         
-        Exemple de réponse :
+        Pour une action stake :
         {
             "action_type": "stake",
             "confidence": 0.95,
@@ -94,8 +99,34 @@ class FlowCryptoAI:
                 "amount": 150.0,
                 "validator": "blocto"
             },
+            "user_response": "Parfait ! Je vais préparer le staking de 150 FLOW avec le validator Blocto pour vous.",
             "missing_info": []
         }
+        
+        Pour une conversation :
+        {
+            "action_type": "conversation",
+            "confidence": 0.9,
+            "parameters": {},
+            "user_response": "Bonjour ! Je suis là pour vous aider avec vos opérations crypto sur Flow. Vous pouvez me demander de staker des tokens, effectuer des swaps, ou vérifier vos soldes. Comment puis-je vous aider ?",
+            "missing_info": []
+        }
+        
+        TOUJOURS retourner un JSON avec ces champs exacts.
+        """
+        
+        # Prompts pour les réponses conversationnelles
+        self.conversation_system_prompt = """
+        Tu es un assistant crypto amical et professionnel spécialisé dans la blockchain Flow.
+        
+        Réponds de manière naturelle et utile aux questions des utilisateurs.
+        - Sois concis mais informatif
+        - Utilise un ton amical et professionnel  
+        - Propose de l'aide pour les actions crypto (stake, swap, balance)
+        - Si on te demande quelque chose que tu ne peux pas faire, explique gentiment
+        - Reste dans le contexte crypto/Flow autant que possible
+        
+        Réponds directement sans JSON, juste le texte de réponse.
         """
     
     async def analyze_message(self, message: str) -> ParsedAction:
@@ -115,22 +146,26 @@ class FlowCryptoAI:
             content = response.choices[0].message.content
             if not content:
                 raise ValueError("La réponse du LLM est vide.")
+            
             ai_response = json.loads(content)
             
             return ParsedAction(
                 action_type=ActionType(ai_response.get("action_type", "unknown")),
                 confidence=ai_response.get("confidence", 0.0),
                 parameters=ai_response.get("parameters", {}),
-                raw_message=message
+                raw_message=message,
+                user_response=ai_response.get("user_response", "")
             )
             
         except Exception as e:
             logger.error(f"Erreur lors de l'analyse IA: {e}")
+            # Réponse de fallback plus naturelle
             return ParsedAction(
-                action_type=ActionType.UNKNOWN,
-                confidence=0.0,
+                action_type=ActionType.CONVERSATION,
+                confidence=0.5,
                 parameters={},
-                raw_message=message
+                raw_message=message,
+                user_response="Je n'ai pas bien compris votre message. Pouvez-vous reformuler ? Je peux vous aider avec le staking, les swaps ou vérifier vos soldes."
             )
 
     async def analyze_message_raw(self, message: str) -> tuple[ParsedAction, str]:
@@ -156,18 +191,40 @@ class FlowCryptoAI:
                 action_type=ActionType(ai_response.get("action_type", "unknown")),
                 confidence=ai_response.get("confidence", 0.0),
                 parameters=ai_response.get("parameters", {}),
-                raw_message=message
+                raw_message=message,
+                user_response=ai_response.get("user_response", "")
             )
             return parsed, content
             
         except Exception as e:
             logger.error(f"Erreur lors de l'analyse IA: {e}")
             return ParsedAction(
-                action_type=ActionType.UNKNOWN,
-                confidence=0.0,
+                action_type=ActionType.CONVERSATION,
+                confidence=0.5,
                 parameters={},
-                raw_message=message
+                raw_message=message,
+                user_response="Je n'ai pas bien compris votre message. Pouvez-vous reformuler ?"
             ), ""
+
+    async def generate_conversation_response(self, message: str) -> str:
+        """Génère une réponse conversationnelle pour les messages non-actions"""
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": self.conversation_system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.3,
+                max_tokens=200
+            )
+            
+            content = response.choices[0].message.content
+            return content if content else "Comment puis-je vous aider avec vos opérations crypto ?"
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la génération de réponse: {e}")
+            return "Je suis là pour vous aider avec vos opérations crypto. Que puis-je faire pour vous ?"
 
 class FlowCryptoAgent:
     """
@@ -203,21 +260,30 @@ class FlowCryptoAgent:
             parsed_action = await self.ai.analyze_message(msg.content)
             
             # Traitement selon le type d'action
-            if parsed_action.action_type == ActionType.UNKNOWN:
+            if parsed_action.action_type == ActionType.CONVERSATION:
+                # Réponse conversationnelle normale
+                response = ActionResponse(
+                    success=True,
+                    message=parsed_action.user_response,
+                    requires_confirmation=False
+                )
+            
+            elif parsed_action.action_type == ActionType.UNKNOWN:
                 response = ActionResponse(
                     success=False,
-                    message="Je n'ai pas pu comprendre votre demande. Pouvez-vous reformuler ?",
+                    message=parsed_action.user_response or "Je n'ai pas pu comprendre votre demande. Pouvez-vous reformuler ?",
                     requires_confirmation=False
                 )
             
             elif parsed_action.confidence < 0.7:
                 response = ActionResponse(
                     success=False,
-                    message="Je ne suis pas sûr de comprendre votre demande. Pouvez-vous être plus précis ?",
+                    message=parsed_action.user_response or "Je ne suis pas sûr de comprendre votre demande. Pouvez-vous être plus précis ?",
                     requires_confirmation=False
                 )
             
             else:
+                # Action crypto - traitement avec fonction + réponse
                 response = await self.process_action(parsed_action, msg.user_id)
             
             await ctx.send(sender, response)
@@ -239,7 +305,7 @@ class FlowCryptoAgent:
                     function_call = self.generate_function_call(action)
                     response = ActionResponse(
                         success=True,
-                        message="Action confirmée et exécutée.",
+                        message="Parfait ! Votre action a été confirmée et est en cours d'exécution. 🚀",
                         function_call=function_call,
                         requires_confirmation=False
                     )
@@ -247,7 +313,7 @@ class FlowCryptoAgent:
                     self.pending_actions.pop(msg.action_id)
                     response = ActionResponse(
                         success=True,
-                        message="Action annulée.",
+                        message="Pas de problème, j'ai annulé cette action. N'hésitez pas si vous avez besoin d'autre chose !",
                         requires_confirmation=False
                     )
             
@@ -276,14 +342,14 @@ class FlowCryptoAgent:
         if not wallet_address:
             return ActionResponse(
                 success=False,
-                message="Adresse wallet manquante. Veuillez fournir une adresse valide (0x...).",
+                message="Il me faut une adresse wallet pour vérifier le solde. Pouvez-vous me donner une adresse valide (qui commence par 0x) ?",
                 requires_confirmation=False
             )
         
         if not self.validate_wallet_address(wallet_address):
             return ActionResponse(
                 success=False,
-                message="Adresse wallet invalide. L'adresse doit commencer par '0x'.",
+                message="Cette adresse wallet ne semble pas valide. Elle doit commencer par '0x'. Pouvez-vous vérifier ?",
                 requires_confirmation=False
             )
         
@@ -291,7 +357,7 @@ class FlowCryptoAgent:
         
         return ActionResponse(
             success=True,
-            message="Vérification du solde en cours...",
+            message=f"Je vérifie le solde de votre wallet {wallet_address[:8]}... 💰",
             function_call=function_call,
             requires_confirmation=False
         )
@@ -312,12 +378,16 @@ class FlowCryptoAgent:
         action_id = f"{user_id}_{action.action_type.value}_{hash(action.raw_message)}"
         self.pending_actions[action_id] = action
         
-        # Message de confirmation
+        # Message de confirmation avec réponse utilisateur
+        base_response = action.user_response if action.user_response else ""
         confirmation_message = self.generate_confirmation_message(action)
+        
+        # Combiner la réponse IA avec la demande de confirmation
+        full_message = f"{base_response}\n\n{confirmation_message}"
         
         return ActionResponse(
             success=True,
-            message=confirmation_message,
+            message=full_message,
             requires_confirmation=True,
             action_id=action_id
         )
@@ -330,9 +400,9 @@ class FlowCryptoAgent:
             validator = action.parameters.get("validator")
             
             if not amount or amount <= 0:
-                return "Montant invalide pour le staking."
+                return "Le montant pour le staking doit être positif. Pouvez-vous préciser combien vous voulez staker ?"
             if not validator:
-                return "Validator manquant pour le staking."
+                return "Il me faut le nom du validator pour le staking. Quel validator préférez-vous ?"
         
         elif action.action_type == ActionType.SWAP:
             amount = action.parameters.get("amount")
@@ -340,11 +410,11 @@ class FlowCryptoAgent:
             to_token = action.parameters.get("to_token")
             
             if not amount or amount <= 0:
-                return "Montant invalide pour le swap."
+                return "Le montant pour l'échange doit être positif. Combien voulez-vous échanger ?"
             if not from_token or not to_token:
-                return "Tokens manquants pour le swap."
+                return "Il me faut les deux tokens pour l'échange. De quel token vers quel token voulez-vous échanger ?"
             if from_token == to_token:
-                return "Les tokens source et destination ne peuvent pas être identiques."
+                return "Vous ne pouvez pas échanger un token contre lui-même ! 😄"
         
         return None
     
@@ -358,15 +428,15 @@ class FlowCryptoAgent:
         if action.action_type == ActionType.STAKE:
             amount = action.parameters["amount"]
             validator = action.parameters["validator"]
-            return f"Vous êtes sur le point de staker {amount} FLOW avec le validator {validator}. Confirmez-vous cette action ?"
+            return f"⚠️ Confirmation requise :\nStaking de {amount} FLOW avec le validator {validator}.\n\nVoulez-vous continuer ? (Répondez 'oui' ou 'non')"
         
         elif action.action_type == ActionType.SWAP:
             amount = action.parameters["amount"]
             from_token = action.parameters["from_token"].upper()
             to_token = action.parameters["to_token"].upper()
-            return f"Vous êtes sur le point d'échanger {amount} {from_token} contre {to_token}. Confirmez-vous cette action ?"
+            return f"⚠️ Confirmation requise :\nÉchange de {amount} {from_token} contre {to_token}.\n\nVoulez-vous continuer ? (Répondez 'oui' ou 'non')"
         
-        return "Confirmez-vous cette action ?"
+        return "⚠️ Confirmez-vous cette action ?"
     
     def generate_function_call(self, action: ParsedAction) -> str:
         """Génère l'appel de fonction pour une action"""
@@ -430,11 +500,17 @@ async def interactive_chat():
                 break
             elif user_input.lower() == 'help':
                 print("\nExemples de messages :")
+                print("=== Actions crypto ===")
                 print("- Je veux placer 150 FLOW en staking chez Blocto")
                 print("- Peux-tu échanger 20 USDC contre du FLOW ?")
                 print("- Montre-moi le solde de 0x1234567890abcdef")
                 print("- Combien j'ai sur mon portefeuille 0xABC123 ?")
                 print("- Déléguer 500 tokens au validateur Dapper")
+                print("=== Conversations ===")
+                print("- Bonjour, comment ça va ?")
+                print("- Qu'est-ce que tu peux faire ?")
+                print("- Comment fonctionne le staking ?")
+                print("- Explique-moi Flow")
                 continue
             elif not user_input:
                 continue
@@ -448,33 +524,38 @@ async def interactive_chat():
             print(f"   Action détectée: {result.action_type.value}")
             print(f"   Confiance: {result.confidence:.2f}")
             print(f"   Paramètres: {result.parameters}")
+            print(f"   Réponse utilisateur: {result.user_response}")
             
             # Simuler la réponse de l'agent
-            if result.action_type == ActionType.UNKNOWN:
-                print(f"\n❓ Agent: Je n'ai pas pu comprendre votre demande. Pouvez-vous reformuler ?")
+            if result.action_type == ActionType.CONVERSATION:
+                print(f"\n💬 Agent: {result.user_response}")
+            
+            elif result.action_type == ActionType.UNKNOWN:
+                print(f"\n❓ Agent: {result.user_response}")
+            
             elif result.confidence < 0.7:
-                print(f"\n🤔 Agent: Je ne suis pas sûr de comprendre votre demande. Pouvez-vous être plus précis ?")
+                print(f"\n🤔 Agent: {result.user_response}")
+            
             else:
-                # Générer une réponse basée sur l'action
+                # Réponse avec fonction
+                print(f"\n🤖 Agent: {result.user_response}")
+                
                 if result.action_type == ActionType.BALANCE:
                     wallet = result.parameters.get("wallet_address", "adresse manquante")
-                    print(f"\n💰 Agent: Vérification du solde pour l'adresse {wallet}...")
-                    print(f"   Fonction appelée: check_balance('{wallet}')")
+                    print(f"   ⚡ Fonction appelée: check_balance('{wallet}')")
                 
                 elif result.action_type == ActionType.STAKE:
                     amount = result.parameters.get("amount", "montant manquant")
                     validator = result.parameters.get("validator", "validator manquant")
-                    print(f"\n🔒 Agent: Vous êtes sur le point de staker {amount} FLOW avec le validator {validator}.")
-                    print(f"   Confirmez-vous cette action ? (oui/non)")
-                    print(f"   Fonction appelée: stake_tokens({amount}, '{validator}')")
+                    print(f"   ⚠️ Confirmation requise pour staking {amount} FLOW avec {validator}")
+                    print(f"   ⚡ Fonction prête: stake_tokens({amount}, '{validator}')")
                 
                 elif result.action_type == ActionType.SWAP:
                     amount = result.parameters.get("amount", "montant manquant")
                     from_token = result.parameters.get("from_token", "token source manquant")
                     to_token = result.parameters.get("to_token", "token destination manquant")
-                    print(f"\n🔄 Agent: Vous êtes sur le point d'échanger {amount} {from_token.upper()} contre {to_token.upper()}.")
-                    print(f"   Confirmez-vous cette action ? (oui/non)")
-                    print(f"   Fonction appelée: swap_tokens('{from_token}', '{to_token}', {amount})")
+                    print(f"   ⚠️ Confirmation requise pour swap {amount} {from_token} -> {to_token}")
+                    print(f"   ⚡ Fonction prête: swap_tokens('{from_token}', '{to_token}', {amount})")
             
         except KeyboardInterrupt:
             print("\n\nAu revoir !")
@@ -496,8 +577,11 @@ async def test_ai_analysis():
         "Montre-moi le solde de 0x1234567890abcdef",
         "Combien j'ai sur mon portefeuille 0xABC123 ?",
         "Déléguer 500 tokens au validateur Dapper",
-        "Hello comment ça va ?"
-        "tu peux me dire comment investir mes bitcoin ?"
+        "Hello comment ça va ?",
+        "tu peux me dire comment investir mes bitcoin ?",
+        "Qu'est-ce que tu peux faire ?",
+        "Bonjour !",
+        "Comment fonctionne le staking sur Flow ?"
     ]
     
     for message in test_messages:
@@ -507,9 +591,8 @@ async def test_ai_analysis():
         print(f"Action: {result.action_type}")
         print(f"Confiance: {result.confidence}")
         print(f"Paramètres: {result.parameters}")
+        print(f"Réponse utilisateur: {result.user_response}")
         print("-" * 50)
-
-
 
 # Exemple d'utilisation
 if __name__ == "__main__":
