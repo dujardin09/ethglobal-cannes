@@ -2,7 +2,7 @@
 
 import { Geist, Geist_Mono } from "next/font/google";
 import { FlowProvider } from "@onflow/kit";
-import flowJson from "../flow.json";
+import flowJson from "../../flow.json";
 import "./globals.css";
 
 const geistSans = Geist({
