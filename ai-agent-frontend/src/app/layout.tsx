@@ -5,6 +5,7 @@ import { FlowProvider } from "@onflow/kit";
 import flowJson from "../../flow.json";
 import { initFlowConfig } from "@/lib/flow-config";
 import { initFlowConfigDirect } from "@/lib/flow-config-direct";
+import { initFlowConfigLocal } from "@/lib/flow-config-local";
 import { useEffect } from "react";
 import "./globals.css";
 
@@ -26,9 +27,18 @@ export default function RootLayout({
   // Initialize Flow configuration on client side
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Try direct configuration for emulator to avoid discovery service issues
+      // Use local configuration to avoid discovery service network errors
       if ((process.env.NEXT_PUBLIC_FLOW_NETWORK || 'emulator') === 'emulator') {
-        initFlowConfigDirect();
+        import('@onflow/fcl').then((fcl) => {
+          // Configure essential settings first
+          fcl.config({
+            'walletconnect.projectId': process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '2f5a5eba86e7e893eb6c92170c026fbb',
+            'walletconnect.includeBaseWC': true,
+          });
+          
+          // Then use local configuration
+          initFlowConfigLocal();
+        });
       } else {
         initFlowConfig();
       }
@@ -42,15 +52,8 @@ export default function RootLayout({
       >
         <FlowProvider
           config={{
-            accessNodeUrl: process.env.NEXT_PUBLIC_ACCESS_NODE_URL || 
-              (process.env.NEXT_PUBLIC_FLOW_NETWORK === 'mainnet' ? 'https://rest-mainnet.onflow.org' :
-               process.env.NEXT_PUBLIC_FLOW_NETWORK === 'testnet' ? 'https://rest-testnet.onflow.org' :
-               'http://localhost:8888'),
-            flowNetwork: (process.env.NEXT_PUBLIC_FLOW_NETWORK as any) || 'emulator',
-            discoveryWallet: process.env.NEXT_PUBLIC_DISCOVERY_WALLET || 
-              (process.env.NEXT_PUBLIC_FLOW_NETWORK === 'mainnet' ? 'https://fcl-discovery.onflow.org/authn' :
-               process.env.NEXT_PUBLIC_FLOW_NETWORK === 'testnet' ? 'https://fcl-discovery.onflow.org/testnet/authn' :
-               'https://fcl-discovery.onflow.org/emulator/authn'),
+            accessNodeUrl: 'http://localhost:8888',
+            flowNetwork: 'emulator',
           }}
           flowJson={flowJson}
         >

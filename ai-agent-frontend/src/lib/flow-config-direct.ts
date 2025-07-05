@@ -9,8 +9,12 @@ export const initFlowConfigDirect = () => {
     // Network configuration
     'flow.network': 'emulator',
     
-    // Direct service configuration - this bypasses discovery
-    'service.OpenID.scopes': 'email',
+    // Discovery configuration - required by FlowProvider even if we bypass it
+    'discovery.wallet': 'https://fcl-discovery.onflow.org/emulator/authn',
+    'discovery.authn.endpoint': 'https://fcl-discovery.onflow.org/emulator/authn',
+    'discovery.authn.include': ['http://localhost:8701/fcl/authn'],
+    
+    // Direct service configuration for dev wallet
     'challenge.handshake': 'http://localhost:8701/fcl/authn',
     
     // App metadata
@@ -18,9 +22,9 @@ export const initFlowConfigDirect = () => {
     'app.detail.icon': 'https://placekitten.com/g/200/200',
     'app.detail.description': 'AI-powered DeFi assistant for Flow blockchain',
     
-    // Disable discovery service to avoid network errors
-    'discovery.wallet': undefined,
-    'discovery.authn.endpoint': undefined,
+    // WalletConnect configuration - required to avoid warnings
+    'walletconnect.projectId': process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '2f5a5eba86e7e893eb6c92170c026fbb',
+    'walletconnect.includeBaseWC': true,
   });
   
   console.log('Flow configured for emulator with direct dev wallet connection');
