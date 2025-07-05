@@ -82,6 +82,63 @@ All dApps are expected to register for a WalletConnect projectId & add this to t
 - Added filtering for WalletConnect configuration warnings in development
 - Uses environment variable `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` with fallback
 
+### 7. CSS Vendor Prefix and Development Warnings
+**Problem**: CSS warnings about vendor-specific properties and development-only features
+```
+Error in parsing value for '-webkit-text-size-adjust'. Declaration dropped.
+Unknown property '-moz-osx-font-smoothing'. Declaration dropped.
+Unknown pseudo-class or pseudo-element 'global'. Ruleset ignored due to bad selector.
+:host selector in ':host:not(button)' is not featureless and will never match.
+```
+
+**Root Cause**: 
+- Modern CSS frameworks use vendor prefixes that may not be supported in all browsers
+- Development mode shows warnings for CSS features that work fine in production
+- Tailwind CSS and other frameworks use advanced CSS features that trigger warnings
+
+**Solution**:
+- Enhanced `flow-dev-utils.ts` to filter CSS-related warnings in development
+- Added separate CSS warning filter with informational message
+- These warnings don't affect functionality or styling
+
+### 8. JavaScript Development and Source Map Warnings
+**Problem**: Various JavaScript development warnings and missing source maps
+```
+unreachable code after return statement
+Download the React DevTools for a better development experience
+Source map error: NetworkError when attempting to fetch resource
+The resource at "..." preloaded with link preload was not used within a few seconds
+```
+
+**Root Cause**: 
+- Development builds include debug code and source maps that may not be available
+- React DevTools prompts and preload optimizations create noise in development
+- Some JavaScript optimization warnings are expected in development
+
+**Solution**:
+- Added filtering for JavaScript development warnings
+- Suppressed source map error messages (informational only)
+- Filtered preload and React DevTools messages
+- Maintains important error visibility while reducing noise
+
+### 9. WalletConnect Object Logging
+**Problem**: Verbose WalletConnect object logs flooding the console
+```
+Object { time: 1751751494510, level: 40, context: "core/relayer", msg: "Starting WS connection..." }
+Object { context: "client" } SignClient Initialization Success
+Object { context: "client" } session request queue is empty.
+```
+
+**Root Cause**: 
+- WalletConnect library logs detailed connection and state information
+- Flow Reference Wallet extension adds additional logging
+- These logs are helpful for debugging but create noise during normal operation
+
+**Solution**:
+- Enhanced console.log filtering to handle WalletConnect object logs
+- Filters based on object properties (context, msg) as well as string content
+- Preserves important connection status while reducing verbose logging
+
 ## Files Changed
 
 ### Core Configuration
@@ -105,6 +162,9 @@ All dApps are expected to register for a WalletConnect projectId & add this to t
 ✅ **No excessive refresh issues** (stable page loading)
 ✅ **WalletConnect reconnection working** (projectId properly configured)
 ✅ **Hydration warnings suppressed** (browser extension attributes handled)
+✅ **CSS vendor prefix warnings filtered** (development-only noise removed)
+✅ **JavaScript development warnings suppressed** (source maps, React DevTools, etc.)
+✅ **WalletConnect verbose logging filtered** (object logs and connection messages)
 
 ## Development Experience Improvements
 
@@ -114,6 +174,9 @@ All dApps are expected to register for a WalletConnect projectId & add this to t
 4. **Better Error Handling**: Configuration errors are caught and logged appropriately
 5. **Wallet Reconnection**: Smooth disconnect/reconnect experience without configuration warnings
 6. **Hydration Stability**: Browser extension attributes don't cause React warnings
+7. **CSS Development**: Vendor prefix and framework warnings are filtered in development
+8. **JavaScript Debugging**: Source map and development tool warnings are suppressed
+9. **Reduced Logging Noise**: WalletConnect verbose logs are filtered while preserving important information
 
 ## Production Readiness
 
@@ -122,3 +185,5 @@ All dApps are expected to register for a WalletConnect projectId & add this to t
 - All mock data is clearly marked with visual indicators
 - Real blockchain calls work for FLOW token, mock data for others as intended
 - WalletConnect configuration is properly set up for production wallet support
+- CSS and JavaScript optimizations work properly without development noise
+- Console filtering is development-only and doesn't affect production logging

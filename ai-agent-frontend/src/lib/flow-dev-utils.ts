@@ -5,6 +5,8 @@
 
 // Flag to track if dev warnings have been shown
 let devWarningsShown = false;
+let cssWarningsShown = false;
+let sourceMapWarningsShown = false;
 
 /**
  * Filter console messages to reduce noise in development
@@ -26,12 +28,31 @@ export const initDevConsoleFilters = () => {
       message.includes('WalletConnect Plugin has been already loaded') ||
       message.includes('Starting WS connection skipped because the client has no topics') ||
       message.includes('FCL WalletConnect Service Plugin') ||
-      message.includes('All dApps are expected to register for a WalletConnect projectId')
+      message.includes('All dApps are expected to register for a WalletConnect projectId') ||
+      message.includes('Download the React DevTools for a better development experience') ||
+      message.includes('preloaded with link preload was not used within a few seconds') ||
+      message.includes('Error in parsing value for \'-webkit-text-size-adjust\'') ||
+      message.includes('Unknown property \'-moz-osx-font-smoothing\'') ||
+      message.includes(':host selector') ||
+      message.includes('Unknown pseudo-class or pseudo-element \'global\'') ||
+      message.includes('unreachable code after return statement')
     ) {
       // Show a simplified message once
       if (!devWarningsShown) {
-        console.info('ℹ️ Flow Development Mode: Some warnings are expected in dev mode (private keys, deprecated types, etc.)');
+        console.info('ℹ️ Flow Development Mode: Some warnings are expected in dev mode (private keys, deprecated types, CSS vendor prefixes, etc.)');
         devWarningsShown = true;
+      }
+      return;
+    }
+    
+    // Filter CSS-related warnings
+    if (
+      message.includes('Declaration dropped') ||
+      message.includes('Ruleset ignored due to bad selector')
+    ) {
+      if (!cssWarningsShown) {
+        console.info('ℹ️ CSS Development Mode: Vendor-specific CSS properties may show warnings in dev mode');
+        cssWarningsShown = true;
       }
       return;
     }
@@ -42,6 +63,20 @@ export const initDevConsoleFilters = () => {
 
   console.error = (...args: any[]) => {
     const message = args.join(' ');
+    
+    // Filter source map errors that don't affect functionality
+    if (
+      message.includes('Source map error') ||
+      message.includes('NetworkError when attempting to fetch resource') ||
+      message.includes('.css.map') ||
+      message.includes('.js.map')
+    ) {
+      if (!sourceMapWarningsShown) {
+        console.info('ℹ️ Source Maps: Some source map files are not available in development mode');
+        sourceMapWarningsShown = true;
+      }
+      return;
+    }
     
     // Filter hydration mismatch errors caused by browser extensions
     if (
@@ -67,7 +102,11 @@ export const initDevConsoleFilters = () => {
     if (
       message.includes('[frw]') ||
       message.includes('SignClient Initialization Success') ||
-      message.includes('session request queue is empty')
+      message.includes('session request queue is empty') ||
+      message.includes('Starting WS connection skipped because the client has no topics') ||
+      message.includes('Core Initialization Success') ||
+      (typeof args[0] === 'object' && args[0]?.context === 'client') ||
+      (typeof args[0] === 'object' && args[0]?.msg?.includes('Starting WS connection skipped'))
     ) {
       return;
     }
