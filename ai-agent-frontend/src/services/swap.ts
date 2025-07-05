@@ -43,6 +43,14 @@ class KittyPunchSwapService {
         fee: 500, // 0.05%
         liquidity: '500000000000',
         sqrtPriceX96: '79228162514264337593543950336'
+      },
+      {
+        address: '0x1000000000000004',
+        token0: FLOW_TOKENS.FLOW,
+        token1: FLOW_TOKENS.FUSD,
+        fee: 3000, // 0.3%
+        liquidity: '600000000000',
+        sqrtPriceX96: '79228162514264337593543950336'
       }
     ];
   }
