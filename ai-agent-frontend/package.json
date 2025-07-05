@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@onflow/fcl": "^1.19.0",
     "@onflow/kit": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.525.0",

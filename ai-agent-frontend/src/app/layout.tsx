@@ -3,6 +3,8 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { FlowProvider } from "@onflow/kit";
 import flowJson from "../../flow.json";
+import { initFlowConfig } from "@/lib/flow-config";
+import { useEffect } from "react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +22,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Initialize Flow configuration on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      initFlowConfig();
+    }
+  }, []);
+
   return (
     <html lang="en">
       <body
@@ -27,9 +36,9 @@ export default function RootLayout({
       >
         <FlowProvider
           config={{
-            accessNodeUrl: 'http://localhost:8888',
-            flowNetwork: 'emulator',
-            discoveryWallet: 'https://fcl-discovery.onflow.org/emulator/authn',
+            accessNodeUrl: process.env.NEXT_PUBLIC_ACCESS_NODE_URL || 'http://localhost:8888',
+            flowNetwork: (process.env.NEXT_PUBLIC_FLOW_NETWORK as any) || 'emulator',
+            discoveryWallet: process.env.NEXT_PUBLIC_DISCOVERY_WALLET || 'https://fcl-discovery.onflow.org/emulator/authn',
           }}
           flowJson={flowJson}
         >
