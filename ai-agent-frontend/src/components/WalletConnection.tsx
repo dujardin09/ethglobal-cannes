@@ -90,44 +90,97 @@ export default function WalletConnection({ className }: WalletConnectionProps) {
           </div>
 
           {/* Token Balances */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Token Balances</h3>
-              <button
-                onClick={refreshBalances}
-                disabled={isLoadingBalances}
-                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoadingBalances ? 'animate-spin' : ''}`} />
-              </button>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Token Portfolio</h3>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {Object.keys(tokenBalances).length} tokens
+                </span>
+                <button
+                  onClick={refreshBalances}
+                  disabled={isLoadingBalances}
+                  className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                  title="Refresh balances"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingBalances ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
             
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-2 max-h-64 overflow-y-auto">
               {Object.entries(tokenBalances).length > 0 ? (
                 Object.entries(tokenBalances).map(([address, balance]) => {
                   const token = availableTokens.find(t => t.address === address);
+                  const balanceNum = parseFloat(balance);
+                  const isZeroBalance = balanceNum === 0;
+                  
                   return (
-                    <div key={address} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">{token?.symbol?.charAt(0) || '?'}</span>
+                    <div key={address} className={`flex justify-between items-center p-3 rounded-lg border transition-all ${
+                      isZeroBalance 
+                        ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-60' 
+                        : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-700'
+                    }`}>
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          isZeroBalance 
+                            ? 'bg-gray-300 dark:bg-gray-600' 
+                            : 'bg-gradient-to-r from-blue-500 to-purple-500'
+                        }`}>
+                          <span className="text-sm font-bold text-white">
+                            {token?.symbol?.charAt(0) || '?'}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {token?.symbol || 'Unknown'}
-                        </span>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {token?.symbol || 'Unknown'}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {token?.name || 'Unknown Token'}
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                        {formatBalance(balance, token?.decimals)}
-                      </span>
+                      <div className="text-right">
+                        <div className={`text-sm font-mono font-medium ${
+                          isZeroBalance 
+                            ? 'text-gray-400 dark:text-gray-500' 
+                            : 'text-gray-900 dark:text-gray-100'
+                        }`}>
+                          {formatBalance(balance, token?.decimals)}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {token?.symbol}
+                        </div>
+                      </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
-                  {isLoadingBalances ? 'Loading balances...' : 'No tokens found'}
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Wallet className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {isLoadingBalances ? 'Loading token balances...' : 'No tokens found'}
+                  </div>
+                  {!isLoadingBalances && (
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      Make sure your wallet has tokens or try refreshing
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+            
+            {/* Quick stats */}
+            {Object.keys(tokenBalances).length > 0 && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>Total Assets</span>
+                  <span>{Object.keys(tokenBalances).length} different tokens</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

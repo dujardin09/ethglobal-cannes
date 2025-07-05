@@ -111,8 +111,26 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* API Status Banner */}
+      <div className="bg-green-50 border-b border-green-200 px-4 py-2">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-green-700 font-medium">
+              KittyPunch Swap API Active
+            </span>
+            <span className="text-xs text-green-600">
+              Ready for agent integration
+            </span>
+          </div>
+          <div className="text-xs text-green-600">
+            Base URL: /api/swap/*
+          </div>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-3rem)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-6rem)]">
           {/* Left Panel - Wallet & DeFi Operations */}
           <div className="lg:col-span-1 space-y-6">
             <WalletConnection />
