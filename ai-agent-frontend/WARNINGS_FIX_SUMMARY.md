@@ -64,6 +64,24 @@ data-extension-id="cfiagdgiikmjgfjnlballglniejjgegi"
 - Updated `flow-dev-utils.ts` to filter these non-critical warnings
 - These warnings don't affect functionality, only development console noise
 
+### 6. WalletConnect Configuration Warnings on Reconnection
+**Problem**: When disconnecting and reconnecting wallet, FCL shows WalletConnect projectId requirement warning
+```
+FCL WalletConnect Service Plugin
+============================
+All dApps are expected to register for a WalletConnect projectId & add this to their FCL configuration.
+```
+
+**Root Cause**: 
+- FCL tries to reinitialize WalletConnect plugin on wallet reconnection
+- Our simplified configuration was missing WalletConnect projectId
+- This is required for proper wallet discovery and connection
+
+**Solution**:
+- Added WalletConnect projectId back to `flow-config-local.ts`
+- Added filtering for WalletConnect configuration warnings in development
+- Uses environment variable `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` with fallback
+
 ## Files Changed
 
 ### Core Configuration
@@ -85,6 +103,8 @@ data-extension-id="cfiagdgiikmjgfjnlballglniejjgegi"
 ✅ **API calls successful** (tokens and balances endpoints working)
 ✅ **Reduced console noise** (development warnings filtered)
 ✅ **No excessive refresh issues** (stable page loading)
+✅ **WalletConnect reconnection working** (projectId properly configured)
+✅ **Hydration warnings suppressed** (browser extension attributes handled)
 
 ## Development Experience Improvements
 
@@ -92,6 +112,8 @@ data-extension-id="cfiagdgiikmjgfjnlballglniejjgegi"
 2. **Faster Loading**: Removed duplicate FCL configurations that caused delays
 3. **More Stable**: Single source of truth for Flow configuration prevents conflicts
 4. **Better Error Handling**: Configuration errors are caught and logged appropriately
+5. **Wallet Reconnection**: Smooth disconnect/reconnect experience without configuration warnings
+6. **Hydration Stability**: Browser extension attributes don't cause React warnings
 
 ## Production Readiness
 
@@ -99,3 +121,4 @@ data-extension-id="cfiagdgiikmjgfjnlballglniejjgegi"
 - Production deployments should use proper wallet discovery services
 - All mock data is clearly marked with visual indicators
 - Real blockchain calls work for FLOW token, mock data for others as intended
+- WalletConnect configuration is properly set up for production wallet support

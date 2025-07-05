@@ -24,7 +24,9 @@ export const initDevConsoleFilters = () => {
       message.includes('Private Keys Detected') ||
       message.includes('Passing in Number as value for UInt8 is deprecated') ||
       message.includes('WalletConnect Plugin has been already loaded') ||
-      message.includes('Starting WS connection skipped because the client has no topics')
+      message.includes('Starting WS connection skipped because the client has no topics') ||
+      message.includes('FCL WalletConnect Service Plugin') ||
+      message.includes('All dApps are expected to register for a WalletConnect projectId')
     ) {
       // Show a simplified message once
       if (!devWarningsShown) {
