@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@onflow/fcl": "^1.19.0",
     "@onflow/kit": "^0.7.0",
     "clsx": "^2.1.1",

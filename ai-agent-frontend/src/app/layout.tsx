@@ -2,6 +2,7 @@
 
 import { Geist, Geist_Mono } from "next/font/google";
 import { FlowProvider } from "@onflow/kit";
+import { SwapProvider } from "@/contexts/SwapContext";
 import flowJson from "../../flow.json";
 import { initFlowConfig } from "@/lib/flow-config";
 import { initFlowConfigDirect } from "@/lib/flow-config-direct";
@@ -57,7 +58,9 @@ export default function RootLayout({
           }}
           flowJson={flowJson}
         >
-          {children}
+          <SwapProvider>
+            {children}
+          </SwapProvider>
         </FlowProvider>
       </body>
     </html>
