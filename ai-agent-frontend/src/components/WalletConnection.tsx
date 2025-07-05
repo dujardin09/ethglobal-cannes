@@ -12,8 +12,14 @@ interface WalletConnectionProps {
 export default function WalletConnection({ className }: WalletConnectionProps) {
   const { user, authenticate, unauthenticate } = useFlowCurrentUser();
 
-  const handleConnect = () => {
-    authenticate();
+  const handleConnect = async () => {
+    try {
+      await authenticate();
+    } catch (error) {
+      console.error('Authentication error:', error);
+      // You could add a toast notification here
+      alert('Failed to connect wallet. Please make sure the Flow emulator and dev-wallet are running.');
+    }
   };
 
   const handleDisconnect = () => {
