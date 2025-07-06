@@ -11,7 +11,7 @@ Fixed all major FCL configuration warnings and improved development experience.
 FCL WalletConnect Plugin has been already loaded with different configuration. It is not possible to change the configuration after the plugin has been loaded.
 ```
 
-**Solution**: 
+**Solution**:
 - Removed `FlowProvider` from `@onflow/kit` that was causing dual configuration
 - Replaced with direct FCL configuration in `flow-config-local.ts`
 - Updated components to use direct `fcl.currentUser().subscribe()` instead of `useFlowCurrentUser` hook
@@ -41,7 +41,7 @@ Passing in Number as value for UInt8 is deprecated and will cease to work in fut
 
 ### 4. Excessive Refresh Issues
 **Problem**: Constant page reloads and API calls
-**Solution**: 
+**Solution**:
 - Removed duplicate FCL configuration sources
 - Simplified configuration to single source of truth
 - Cached Flow network checks and balance calls
@@ -54,7 +54,7 @@ data-channel-name="..."
 data-extension-id="cfiagdgiikmjgfjnlballglniejjgegi"
 ```
 
-**Root Cause**: 
+**Root Cause**:
 - Flow Reference Wallet (FRW) browser extension injects `data-channel-name` and `data-extension-id` attributes into the `<body>` element
 - These attributes are added after server-side rendering but before React hydration
 - React expects the server and client HTML to match exactly
@@ -72,7 +72,7 @@ FCL WalletConnect Service Plugin
 All dApps are expected to register for a WalletConnect projectId & add this to their FCL configuration.
 ```
 
-**Root Cause**: 
+**Root Cause**:
 - FCL tries to reinitialize WalletConnect plugin on wallet reconnection
 - Our simplified configuration was missing WalletConnect projectId
 - This is required for proper wallet discovery and connection
@@ -91,7 +91,7 @@ Unknown pseudo-class or pseudo-element 'global'. Ruleset ignored due to bad sele
 :host selector in ':host:not(button)' is not featureless and will never match.
 ```
 
-**Root Cause**: 
+**Root Cause**:
 - Modern CSS frameworks use vendor prefixes that may not be supported in all browsers
 - Development mode shows warnings for CSS features that work fine in production
 - Tailwind CSS and other frameworks use advanced CSS features that trigger warnings
@@ -110,7 +110,7 @@ Source map error: NetworkError when attempting to fetch resource
 The resource at "..." preloaded with link preload was not used within a few seconds
 ```
 
-**Root Cause**: 
+**Root Cause**:
 - Development builds include debug code and source maps that may not be available
 - React DevTools prompts and preload optimizations create noise in development
 - Some JavaScript optimization warnings are expected in development
@@ -129,7 +129,7 @@ Object { context: "client" } SignClient Initialization Success
 Object { context: "client" } session request queue is empty.
 ```
 
-**Root Cause**: 
+**Root Cause**:
 - WalletConnect library logs detailed connection and state information
 - Flow Reference Wallet extension adds additional logging
 - These logs are helpful for debugging but create noise during normal operation
@@ -147,7 +147,7 @@ Object { context: "client" } session request queue is empty.
 
 ### Components Updated
 - `/src/components/WalletConnection.tsx` - Direct FCL auth state subscription
-- `/src/components/SwapInterface.tsx` - Direct FCL auth state subscription  
+- `/src/components/SwapInterface.tsx` - Direct FCL auth state subscription
 - `/src/app/page.tsx` - Direct FCL auth state subscription
 
 ### New Utilities
@@ -156,7 +156,7 @@ Object { context: "client" } session request queue is empty.
 ## Testing Results
 
 ✅ **No more FCL WalletConnect plugin warnings**
-✅ **Flow network connectivity working** ("FCL configured with access node: http://localhost:8888")
+✅ **Flow network connectivity working** ("FCL configured with access node: https://rest-testnet.onflow.org")
 ✅ **API calls successful** (tokens and balances endpoints working)
 ✅ **Reduced console noise** (development warnings filtered)
 ✅ **No excessive refresh issues** (stable page loading)

@@ -19,7 +19,7 @@ NEXT_PUBLIC_AGENT_URL=http://127.0.0.1:8001
 
 # Configuration Flow
 NEXT_PUBLIC_FLOW_NETWORK=emulator
-NEXT_PUBLIC_FLOW_ACCESS_NODE=http://localhost:8888
+NEXT_PUBLIC_FLOW_ACCESS_NODE=https://rest-testnet.onflow.org
 ```
 
 ### 2. Démarrage de l'Agent AI
@@ -137,4 +137,4 @@ Essayez ces exemples de messages :
 
 - [Documentation API de l'Agent](../doc_api.md)
 - [Guide d'Installation](../README.md)
-- [Configuration Flow](../ai-agent-frontend/FLOW_EMULATOR_SETUP.md) 
+- [Configuration Flow](../ai-agent-frontend/FLOW_EMULATOR_SETUP.md)

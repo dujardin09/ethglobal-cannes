@@ -1,11 +1,11 @@
 import * as fcl from '@onflow/fcl';
-import { 
-  Token, 
-  SwapQuote, 
-  SwapParams, 
-  SwapTransaction, 
+import {
+  Token,
+  SwapQuote,
+  SwapParams,
+  SwapTransaction,
   KittyPunchPool,
-  FLOW_TOKENS 
+  FLOW_TOKENS
 } from '@/types/swap';
 import { FlowUtils, FLOW_TRANSACTIONS, FLOW_SCRIPTS } from '@/lib/flow-integration';
 
@@ -60,11 +60,11 @@ class KittyPunchSwapService {
   async getTokenBalances(userAddress: string): Promise<Record<string, string>> {
     try {
       const balances: Record<string, string> = {};
-      
+
       // Try to use the multi-balance script first (more efficient)
       try {
-        const multiBalances = await FlowUtils.getMultipleBalances(userAddress, 'emulator');
-        
+        const multiBalances = await FlowUtils.getMultipleBalances(userAddress, 'testnet');
+
         if (multiBalances && Object.keys(multiBalances).length > 0) {
           // Map the script results to our token addresses
           balances[FLOW_TOKENS.FLOW.address] = multiBalances.FLOW || '0.0';
@@ -77,17 +77,17 @@ class KittyPunchSwapService {
         }
       } catch (error) {
         console.warn('Multi-balance script failed, falling back to individual queries:', error);
-        
+
         // Fallback to individual FLOW balance query
-        const flowBalance = await FlowUtils.getFlowBalance(userAddress, 'emulator');
+        const flowBalance = await FlowUtils.getFlowBalance(userAddress, 'testnet');
         balances[FLOW_TOKENS.FLOW.address] = flowBalance;
-        
+
         // For other tokens, we'll implement real balance queries as we add support for them
         balances[FLOW_TOKENS.FUSD.address] = 'MOCK_100.0'; // Mock for now
         balances[FLOW_TOKENS.USDC.address] = 'MOCK_500.0'; // Mock
         balances[FLOW_TOKENS.USDT.address] = 'MOCK_250.0'; // Mock
       }
-      
+
       return balances;
     } catch (error) {
       console.error('Error fetching token balances:', error);
@@ -116,9 +116,9 @@ class KittyPunchSwapService {
     try {
       // Use real blockchain call for FLOW token
       if (tokenAddress === FLOW_TOKENS.FLOW.address) {
-        return await FlowUtils.getFlowBalance(userAddress, 'emulator');
+        return await FlowUtils.getFlowBalance(userAddress, 'testnet');
       }
-      
+
       // For other tokens, use the cached balances from getTokenBalances
       const allBalances = await this.getTokenBalances(userAddress);
       return allBalances[tokenAddress] || '0';
@@ -131,18 +131,18 @@ class KittyPunchSwapService {
   // Get all token balances for a user
   async getAllTokenBalances(userAddress: string): Promise<Record<string, string>> {
     const balances: Record<string, string> = {};
-    
+
     for (const token of this.getAvailableTokens()) {
       balances[token.address] = await this.getTokenBalance(userAddress, token.address);
     }
-    
+
     return balances;
   }
 
   // Find the best route for a swap
   findBestRoute(tokenIn: string, tokenOut: string): KittyPunchPool[] {
     // Simple direct route finding
-    const directPool = this.pools.find(pool => 
+    const directPool = this.pools.find(pool =>
       (pool.token0.address === tokenIn && pool.token1.address === tokenOut) ||
       (pool.token1.address === tokenIn && pool.token0.address === tokenOut)
     );
@@ -172,7 +172,7 @@ class KittyPunchSwapService {
   // Calculate swap output amount (simplified calculation for demo)
   calculateSwapOutput(amountIn: string, tokenIn: Token, tokenOut: Token, route: KittyPunchPool[]): string {
     const amountInNum = parseFloat(amountIn);
-    
+
     // Mock price calculation (in real implementation, this would use pool math)
     const mockPrices: Record<string, number> = {
       [FLOW_TOKENS.FLOW.address]: 0.5, // 1 FLOW = 0.5 USD
@@ -183,9 +183,9 @@ class KittyPunchSwapService {
 
     const priceIn = mockPrices[tokenIn.address] || 1;
     const priceOut = mockPrices[tokenOut.address] || 1;
-    
+
     let amountOut = (amountInNum * priceIn) / priceOut;
-    
+
     // Apply fees
     route.forEach(pool => {
       const feeRate = pool.fee / 1000000; // Convert basis points to decimal
@@ -201,8 +201,8 @@ class KittyPunchSwapService {
 
   // Get a swap quote
   async getSwapQuote(
-    tokenInAddress: string, 
-    tokenOutAddress: string, 
+    tokenInAddress: string,
+    tokenOutAddress: string,
     amountIn: string
   ): Promise<SwapQuote | null> {
     try {
@@ -310,8 +310,8 @@ class KittyPunchSwapService {
 
   // Execute a swap using real Flow transaction
   async executeSwap(
-    quoteId: string, 
-    userAddress: string, 
+    quoteId: string,
+    userAddress: string,
     slippageTolerance: number = 0.5
   ): Promise<SwapTransaction> {
     const quote = this.getQuoteById(quoteId);
@@ -343,10 +343,10 @@ class KittyPunchSwapService {
     try {
       // Execute the real swap transaction on Flow blockchain
       const txHash = await this.submitSwapTransaction(swapParams);
-      
+
       transaction.hash = txHash;
       transaction.status = 'confirmed';
-      
+
       return transaction;
     } catch (error) {
       transaction.status = 'failed';
@@ -375,7 +375,7 @@ class KittyPunchSwapService {
 
       // Wait for transaction to be sealed
       const transaction = await fcl.tx(txId).onceSealed();
-      
+
       if (transaction.status === 4) { // Sealed
         return txId;
       } else {
@@ -383,7 +383,7 @@ class KittyPunchSwapService {
       }
     } catch (error) {
       console.error('Error submitting swap transaction:', error);
-      
+
       // For development, return a mock transaction ID if real transaction fails
       console.log('Falling back to mock transaction for development...');
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -416,16 +416,16 @@ class KittyPunchSwapService {
     const prices = [];
     const now = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
-    
+
     for (let i = days; i >= 0; i--) {
       const timestamp = now - (i * dayMs);
       const basePrice = tokenAddress === FLOW_TOKENS.FLOW.address ? 0.5 : 1.0;
       const variation = (Math.random() - 0.5) * 0.1; // ±5% variation
       const price = basePrice * (1 + variation);
-      
+
       prices.push({ timestamp, price });
     }
-    
+
     return prices;
   }
 }
