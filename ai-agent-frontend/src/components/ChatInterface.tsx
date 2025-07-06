@@ -5,6 +5,7 @@ import { Send, User, Bot, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Message } from '@/types';
 import ConfirmationButtons from './ConfirmationButtons';
+import { FormattedResult } from './FormattedResult';
 
 interface ChatInterfaceProps {
   onSendMessage: (message: string) => void;
@@ -129,13 +130,22 @@ export default function ChatInterface({
               {/* Message Bubble */}
               <div
                 className={cn(
-                  "max-w-xs lg:max-w-md px-4 py-2 rounded-lg",
+                  "max-w-xs lg:max-w-md",
                   message.sender === 'user'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-800'
+                    ? 'bg-blue-500 text-white px-4 py-2 rounded-lg'
+                    : 'bg-gray-100 text-gray-800 px-4 py-2 rounded-lg'
                 )}
               >
-                <p className="text-sm">{message.content}</p>
+                {/* Détecter si c'est un résultat formaté (contient des emojis et est de l'agent) */}
+                {message.sender === 'agent' && 
+                 (message.content.includes('🎉') || 
+                  message.content.includes('✅') || 
+                  message.content.includes('❌') ||
+                  message.content.includes('ℹ️')) ? (
+                  <FormattedResult content={message.content} />
+                ) : (
+                  <p className="text-sm">{message.content}</p>
+                )}
                 
                 {/* Transaction ID Display */}
                 {message.transactionId && (

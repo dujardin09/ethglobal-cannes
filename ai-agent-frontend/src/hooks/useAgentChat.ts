@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { agentAPI, ActionResponse } from '@/services/agent-api';
 import { Message } from '@/types';
+import { resultFormatter } from '@/services/result-formatter';
 
 interface UseAgentChatReturn {
   messages: Message[];
@@ -127,20 +128,31 @@ export function useAgentChat(): UseAgentChatReturn {
         // Ajouter la réponse de confirmation
         addMessage(response.message, 'agent');
 
-        // Si une fonction a été exécutée, l'afficher
-        if (response.function_call) {
-          addMessage(
-            `Action confirmée et exécutée: ${response.function_call}`,
-            'agent',
-            'defi-action',
-            {
-              type: 'function_execution',
-              details: {
-                function_call: response.function_call,
-                function_result: response.function_result
-              }
-            }
-          );
+        // Si une fonction a été exécutée, formater le résultat
+        if (response.function_call && response.function_result) {
+          console.log('🔔 Formatage du résultat avec GPT-4o-mini...');
+          
+          // Détecter le type d'action à partir du function_call
+          let actionType = 'unknown';
+          if (response.function_call.includes('stake')) actionType = 'stake';
+          else if (response.function_call.includes('swap')) actionType = 'swap';
+          else if (response.function_call.includes('vault')) actionType = 'vault';
+          else if (response.function_call.includes('balance')) actionType = 'balance';
+
+          // Formater le résultat via GPT-4o-mini
+          const formattedResult = await resultFormatter.formatResult({
+            actionType,
+            functionResult: response.function_result,
+            userMessage: messages[messages.length - 2]?.content // Message utilisateur précédent
+          });
+
+          if (formattedResult.success) {
+            addMessage(formattedResult.formattedMessage, 'agent');
+          } else {
+            // Fallback si le formatage échoue
+            const simpleResult = resultFormatter.formatSimpleResult(actionType, response.function_result);
+            addMessage(simpleResult, 'agent');
+          }
         }
 
         // Réinitialiser l'action en attente
@@ -161,7 +173,7 @@ export function useAgentChat(): UseAgentChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [addMessage]);
+  }, [addMessage, messages]);
 
   const testConnection = useCallback(async () => {
     try {
