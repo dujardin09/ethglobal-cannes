@@ -21,7 +21,7 @@ async function testFlowIntegration() {
   // Test 1: Direct Flow balance query
   console.log('1️⃣ Testing direct FLOW balance query...');
   try {
-    const flowBalance = await FlowUtils.getFlowBalance(testAddress, 'emulator');
+    const flowBalance = await FlowUtils.getFlowBalance(testAddress, 'testnet');
     console.log(`   ✅ FLOW Balance: ${flowBalance} FLOW`);
   } catch (error) {
     console.log(`   ❌ Error: ${error.message}`);
@@ -31,7 +31,7 @@ async function testFlowIntegration() {
   console.log('');
   console.log('2️⃣ Testing multi-token balance query...');
   try {
-    const multiBalances = await FlowUtils.getMultipleBalances(testAddress, 'emulator');
+    const multiBalances = await FlowUtils.getMultipleBalances(testAddress, 'testnet');
     console.log('   ✅ Multi-token balances:');
     Object.entries(multiBalances).forEach(([token, balance]) => {
       console.log(`      ${token}: ${balance}`);
@@ -62,7 +62,7 @@ async function testFlowIntegration() {
       '0xf233dcee88fe0abe', // FUSD
       '10.0'
     );
-    
+
     if (quote) {
       console.log('   ✅ Swap quote generated:');
       console.log(`      Amount In: ${quote.amountIn} ${quote.tokenIn.symbol}`);

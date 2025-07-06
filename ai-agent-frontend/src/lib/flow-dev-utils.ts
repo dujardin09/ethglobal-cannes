@@ -13,14 +13,14 @@ let sourceMapWarningsShown = false;
  */
 export const initDevConsoleFilters = () => {
   if (typeof window === 'undefined' || devWarningsShown) return;
-  
+
   const originalConsoleWarn = console.warn;
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
 
   console.warn = (...args: any[]) => {
     const message = args.join(' ');
-    
+
     // Filter known development warnings that are expected/harmless
     if (
       message.includes('Private Keys Detected') ||
@@ -44,7 +44,7 @@ export const initDevConsoleFilters = () => {
       }
       return;
     }
-    
+
     // Filter CSS-related warnings
     if (
       message.includes('Declaration dropped') ||
@@ -56,14 +56,14 @@ export const initDevConsoleFilters = () => {
       }
       return;
     }
-    
+
     // Show other warnings normally
     originalConsoleWarn.apply(console, args);
   };
 
   console.error = (...args: any[]) => {
     const message = args.join(' ');
-    
+
     // Filter source map errors that don't affect functionality
     if (
       message.includes('Source map error') ||
@@ -77,7 +77,7 @@ export const initDevConsoleFilters = () => {
       }
       return;
     }
-    
+
     // Filter hydration mismatch errors caused by browser extensions
     if (
       message.includes('A tree hydrated but some attributes of the server rendered HTML') &&
@@ -90,14 +90,14 @@ export const initDevConsoleFilters = () => {
       }
       return;
     }
-    
+
     // Show other errors normally
     originalConsoleError.apply(console, args);
   };
 
   console.log = (...args: any[]) => {
     const message = args.join(' ');
-    
+
     // Filter verbose Flow/WalletConnect logs
     if (
       message.includes('[frw]') ||
@@ -110,7 +110,7 @@ export const initDevConsoleFilters = () => {
     ) {
       return;
     }
-    
+
     // Show other logs normally
     originalConsoleLog.apply(console, args);
   };
@@ -135,7 +135,7 @@ export const isDevelopment = (): boolean => {
  * Check if we're using the local emulator
  */
 export const isLocalEmulator = (): boolean => {
-  return (process.env.NEXT_PUBLIC_FLOW_NETWORK || 'emulator') === 'emulator';
+  return (process.env.NEXT_PUBLIC_FLOW_NETWORK || 'testnet') === 'testnet';
 };
 
 /**

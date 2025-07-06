@@ -74,7 +74,7 @@ curl "http://localhost:3000/api/tokens/balances?userAddress=0x1234567890123456"
     "0x0000000000000002": "250.000000"
   },
   "source": "blockchain", // "blockchain" or "mock" to indicate data source
-  "network": "emulator"   // "emulator", "testnet", or "mainnet"
+  "network": "testnet"   // "emulator", "testnet", or "mainnet"
 }
 ```
 
@@ -88,7 +88,7 @@ curl -X POST http://localhost:3000/api/swap/quote \
   -H "Content-Type: application/json" \
   -d '{
     "tokenInAddress": "0x0ae53cb6e3f42a79",
-    "tokenOutAddress": "0xe223d8a629e49c68", 
+    "tokenOutAddress": "0xe223d8a629e49c68",
     "amountIn": "10.0"
   }'
 ```
@@ -97,7 +97,7 @@ curl -X POST http://localhost:3000/api/swap/quote \
 ```json
 {
   "tokenInAddress": "string",
-  "tokenOutAddress": "string", 
+  "tokenOutAddress": "string",
   "amountIn": "string"
 }
 ```
@@ -114,7 +114,7 @@ curl -X POST http://localhost:3000/api/swap/quote \
       "decimals": 8
     },
     "tokenOut": {
-      "address": "0xe223d8a629e49c68", 
+      "address": "0xe223d8a629e49c68",
       "symbol": "USDC",
       "name": "USD Coin",
       "decimals": 6
@@ -210,7 +210,7 @@ All endpoints return appropriate HTTP status codes and error messages:
 const tokensResponse = await fetch('/api/tokens');
 const { tokens } = await tokensResponse.json();
 
-// 2. Get user balances  
+// 2. Get user balances
 const balancesResponse = await fetch(`/api/tokens/balances?userAddress=${userAddress}`);
 const { balances } = await balancesResponse.json();
 
@@ -228,7 +228,7 @@ const { quote } = await quoteResponse.json();
 
 // 4. Execute swap
 const executeResponse = await fetch('/api/swap/execute', {
-  method: 'POST', 
+  method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     quoteId: quote.id,

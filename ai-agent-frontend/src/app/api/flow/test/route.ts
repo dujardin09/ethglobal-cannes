@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
     // Test various Flow integration features
     const testResults = {
-      network: 'emulator',
+      network: 'testnet',
       timestamp: new Date().toISOString(),
       tests: {
         flowBalance: { status: 'pending' as 'pending' | 'success' | 'failed', result: null as unknown, error: null as string | null },
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     // Test 1: FLOW balance query
     try {
-      const flowBalance = await FlowUtils.getFlowBalance(userAddress, 'emulator');
+      const flowBalance = await FlowUtils.getFlowBalance(userAddress, 'testnet');
       testResults.tests.flowBalance = {
         status: 'success',
         result: `${flowBalance} FLOW`,
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     // Test 2: Multi-token balance query
     try {
-      const multiBalances = await FlowUtils.getMultipleBalances(userAddress, 'emulator');
+      const multiBalances = await FlowUtils.getMultipleBalances(userAddress, 'testnet');
       testResults.tests.multiBalance = {
         status: 'success',
         result: multiBalances,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     // Test 3: Contract address replacement
     try {
       const testScript = '{{FungibleToken}} and {{FlowToken}} should be replaced';
-      const replacedScript = FlowUtils.replaceContractPlaceholders(testScript, 'emulator');
+      const replacedScript = FlowUtils.replaceContractPlaceholders(testScript, 'testnet');
       testResults.tests.contractReplacement = {
         status: 'success',
         result: {

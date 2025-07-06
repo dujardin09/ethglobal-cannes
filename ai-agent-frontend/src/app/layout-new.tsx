@@ -27,9 +27,9 @@ export default function RootLayout({
       >
         <FlowProvider
           config={{
-            accessNodeUrl: 'http://localhost:8888',
-            flowNetwork: 'emulator',
-            discoveryWallet: 'https://fcl-discovery.onflow.org/emulator/authn',
+            accessNodeUrl: 'https://rest-testnet.onflow.org',
+            flowNetwork: 'testnet',
+            discoveryWallet: 'https://fcl-discovery.onflow.org/testnet/authn',
           }}
           flowJson={flowJson}
         >

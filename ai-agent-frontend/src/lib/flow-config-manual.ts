@@ -3,8 +3,8 @@ import * as fcl from '@onflow/fcl';
 // Manual FCL configuration for emulator without discovery service
 export const initFlowConfigManual = () => {
   fcl.config({
-    'accessNode.api': 'http://localhost:8888',
-    'flow.network': 'emulator',
+    'accessNode.api': 'https://rest-testnet.onflow.org',
+    'flow.network': 'testnet',
     'app.detail.title': 'Flow AI DeFi Agent',
     'app.detail.icon': 'https://placekitten.com/g/200/200',
   });
@@ -48,7 +48,7 @@ export const initFlowConfigManual = () => {
       }
     };
   });
-  
+
   console.log('Flow configured manually for emulator');
 };
 

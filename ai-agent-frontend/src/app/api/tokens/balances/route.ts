@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
     const response = {
       balances,
       metadata: {
-        network: 'emulator', // Currently using emulator
+        network: 'testnet', // Currently using emulator
         flowNetworkAvailable: isFlowNetworkAvailable,
         dataSource: isFlowNetworkAvailable ? 'blockchain' : 'mock',
         blockchainIntegration: {
-          FLOW: { 
-            status: isFlowNetworkAvailable ? 'real' : 'mock', 
+          FLOW: {
+            status: isFlowNetworkAvailable ? 'real' : 'mock',
             source: isFlowNetworkAvailable ? 'blockchain' : 'fallback',
             note: isFlowNetworkAvailable ? 'Real Flow blockchain query' : 'Mock data - Flow network not accessible'
           },
