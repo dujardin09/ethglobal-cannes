@@ -541,6 +541,245 @@ class CryptoFunctions:
                 "error": f"Erreur: {str(e)}",
                 "message": "Erreur lors du swap complet"
             }
+    
+    # === FONCTIONS DE STAKING ===
+    
+    async def setup_staking_collection(self, user_address: str) -> Dict[str, Any]:
+        """
+        Configure la collection de staking pour un utilisateur.
+        """
+        logger.info(f"🏗️ Configuration de la collection de staking pour: {user_address}")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        data = {
+            "userAddress": user_address
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{swap_api_url}/stake/setup", json=data) as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("success"):
+                        logger.info(f"✅ Collection de staking configurée pour {user_address}")
+                        return {
+                            "success": True,
+                            "transaction_id": result.get("transactionId"),
+                            "status": result.get("status"),
+                            "message": f"Collection de staking configurée avec succès pour {user_address}"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": result.get("error", "Échec de la configuration"),
+                            "message": "Impossible de configurer la collection de staking"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de la configuration du staking: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": "Erreur lors de la configuration du staking"
+            }
+    
+    async def get_delegator_info(self, user_address: str) -> Dict[str, Any]:
+        """
+        Récupère les informations des délégateurs pour un utilisateur.
+        """
+        logger.info(f"📊 Récupération des infos délégateurs pour: {user_address}")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{swap_api_url}/stake/delegator-info?userAddress={user_address}") as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("success"):
+                        logger.info(f"✅ Infos délégateurs récupérées pour {user_address}")
+                        return {
+                            "success": True,
+                            "delegator_info": result.get("delegatorInfo", []),
+                            "message": f"Informations des délégateurs récupérées pour {user_address}"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": result.get("error", "Aucune info trouvée"),
+                            "message": f"Impossible de récupérer les infos délégateurs pour {user_address}"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des infos délégateurs: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": f"Erreur lors de la récupération des infos délégateurs pour {user_address}"
+            }
+    
+    async def execute_stake(self, user_address: str, amount: str, node_id: Optional[str] = None, delegator_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Exécute une opération de staking.
+        """
+        logger.info(f"🥩 Exécution du staking: {amount} FLOW pour {user_address}")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        data = {
+            "userAddress": user_address,
+            "amount": amount
+        }
+        
+        if node_id:
+            data["nodeID"] = node_id
+        if delegator_id:
+            data["delegatorID"] = delegator_id
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{swap_api_url}/stake/execute", json=data) as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("success"):
+                        logger.info(f"✅ Staking exécuté avec succès: {result.get('transactionId', 'N/A')}")
+                        return {
+                            "success": True,
+                            "transaction_id": result.get("transactionId"),
+                            "transaction_hash": result.get("transactionHash"),
+                            "amount_staked": result.get("amount"),
+                            "validator": result.get("nodeID", "Default Validator"),
+                            "estimated_rewards": result.get("estimatedRewards"),
+                            "staking_details": result.get("stakingDetails", {}),
+                            "message": f"Staking de {amount} FLOW exécuté avec succès ! Récompenses estimées: {result.get('estimatedRewards', 'N/A')} FLOW/an"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": result.get("error", "Échec du staking"),
+                            "message": "Échec de l'exécution du staking"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de l'exécution du staking: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": "Erreur lors de l'exécution du staking"
+            }
+    
+    async def get_staking_status(self, user_address: str) -> Dict[str, Any]:
+        """
+        Récupère le statut de staking d'un utilisateur.
+        """
+        logger.info(f"📈 Récupération du statut de staking pour: {user_address}")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{swap_api_url}/stake/status?userAddress={user_address}") as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("success"):
+                        staking_status = result.get("stakingStatus", {})
+                        logger.info(f"✅ Statut de staking récupéré pour {user_address}")
+                        return {
+                            "success": True,
+                            "staking_status": staking_status,
+                            "total_staked": staking_status.get("totalStaked", "0"),
+                            "total_rewards": staking_status.get("totalRewards", "0"),
+                            "active_stakes": staking_status.get("activeStakes", []),
+                            "network_info": staking_status.get("networkInfo", {}),
+                            "message": f"Statut de staking: {staking_status.get('totalStaked', '0')} FLOW stakés, {staking_status.get('totalRewards', '0')} FLOW de récompenses"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": result.get("error", "Aucun statut trouvé"),
+                            "message": f"Impossible de récupérer le statut de staking pour {user_address}"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération du statut de staking: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": f"Erreur lors de la récupération du statut de staking pour {user_address}"
+            }
+    
+    async def perform_complete_stake(self, user_address: str, amount: str, validator: str = None) -> Dict[str, Any]:
+        """
+        Effectue un staking complet : configure la collection si nécessaire, puis exécute le staking.
+        """
+        logger.info(f"🚀 Début du staking complet: {amount} FLOW pour {user_address}")
+        
+        try:
+            # 1. Vérifier d'abord le statut de staking existant
+            status_result = await self.get_staking_status(user_address)
+            
+            # 2. Si pas de staking existant, configurer la collection
+            if not status_result["success"] or not status_result.get("active_stakes"):
+                logger.info("🏗️ Configuration de la collection de staking...")
+                setup_result = await self.setup_staking_collection(user_address)
+                if not setup_result["success"]:
+                    return {
+                        "success": False,
+                        "error": "Échec de la configuration du staking",
+                        "message": f"Impossible de configurer le staking: {setup_result.get('error', 'Erreur inconnue')}"
+                    }
+            
+            # 3. Récupérer les infos des délégateurs
+            delegator_result = await self.get_delegator_info(user_address)
+            
+            # 4. Exécuter le staking
+            node_id = None
+            delegator_id = None
+            
+            if delegator_result["success"] and delegator_result.get("delegator_info"):
+                # Utiliser un délégateur existant
+                delegator_info = delegator_result["delegator_info"][0]
+                node_id = delegator_info.get("nodeID")
+                delegator_id = delegator_info.get("id")
+                logger.info(f"🔍 Utilisation du délégateur existant: {delegator_id}")
+            
+            # Si un validateur spécifique est demandé, l'utiliser
+            if validator and validator.lower() != "default":
+                # Map des validateurs connus
+                validator_map = {
+                    "blocto": "42656e6a616d696e2056616e204d657465720026d6a7262c8d90e710bcebc3c3",
+                    "benjamin": "42656e6a616d696e2056616e204d657465720026d6a7262c8d90e710bcebc3c3",
+                    "flow": "flow_foundation_node_id"
+                }
+                node_id = validator_map.get(validator.lower(), node_id)
+            
+            stake_result = await self.execute_stake(user_address, amount, node_id, delegator_id)
+            
+            if stake_result["success"]:
+                return {
+                    "success": True,
+                    "transaction_id": stake_result["transaction_id"],
+                    "transaction_hash": stake_result["transaction_hash"],
+                    "amount_staked": stake_result["amount_staked"],
+                    "validator": validator or "Benjamin Van Meter",
+                    "estimated_rewards": stake_result["estimated_rewards"],
+                    "message": f"Staking réussi ! {amount} FLOW stakés avec {validator or 'le validateur par défaut'}. Récompenses estimées: {stake_result.get('estimated_rewards', 'N/A')} FLOW/an"
+                }
+            else:
+                return stake_result
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du staking complet: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur: {str(e)}",
+                "message": "Erreur lors du staking complet"
+            }
 
 # === 3. CLASSE D'INTELLIGENCE ARTIFICIELLE ===
 
@@ -808,11 +1047,18 @@ class FlowCryptoAgent:
                             result = {"success": False, "message": f"Action vault '{vault_action}' non supportée"}
                     
                     elif action.action_type == ActionType.STAKE:
-                        # Pour les autres actions, vous pouvez ajouter d'autres fonctions ici
-                        result = {
-                            "success": True,
-                            "message": f"Staking de {action.parameters.get('amount')} FLOW avec {action.parameters.get('validator')} (fonction à implémenter)"
-                        }
+                        # ✨ EXÉCUTION RÉELLE DU STAKING avec vos API
+                        amount = action.parameters.get('amount', 0)
+                        validator = action.parameters.get('validator', 'default')
+                        
+                        logger.info(f"🥩 Début du staking: {amount} FLOW avec {validator}")
+                        
+                        # Utiliser la fonction de staking complet
+                        result = await self.crypto_functions.perform_complete_stake(
+                            user_address=request.user_id,
+                            amount=str(amount),
+                            validator=validator
+                        )
                     
                     elif action.action_type == ActionType.SWAP:
                         # ✨ EXÉCUTION RÉELLE DU SWAP avec vos API
