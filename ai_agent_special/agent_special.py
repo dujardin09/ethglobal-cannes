@@ -29,6 +29,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import openai
+import aiohttp  # Nouveau import pour les requêtes HTTP
 from uagents import Agent, Context, Model
 from uagents.setup import fund_agent_if_low
 
@@ -40,10 +41,16 @@ AGENT_ENDPOINT = [f"http://127.0.0.1:{AGENT_PORT}/submit"]
 MAX_HISTORY_LENGTH = 10
 CRYPTO_FUNCTIONS_DIR = "crypto_functions"
 
+# --- Configuration API TypeScript Bridge ---
+CRYPTO_BRIDGE_URL = "http://localhost:3002/api"
+
 # --- Configuration OpenAI ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("La variable d'environnement OPENAI_API_KEY doit être définie.")
+
+# Vérification que la clé API est bien une chaîne
+assert isinstance(OPENAI_API_KEY, str), "OPENAI_API_KEY doit être une chaîne de caractères"
 
 # --- Config Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,6 +63,7 @@ class ActionType(Enum):
     STAKE = "stake"
     SWAP = "swap"
     BALANCE = "balance"
+    VAULT = "vault"  # Nouvelle action pour les vaults
     CONVERSATION = "conversation"
     UNKNOWN = "unknown"
 
@@ -90,6 +98,202 @@ class ActionResponse(Model):
     requires_confirmation: bool = False
     action_id: Optional[str] = None
 
+# === 2.5. CLASSE CRYPTO FUNCTIONS (BRIDGE VERS TYPESCRIPT) ===
+
+class CryptoFunctions:
+    """
+    Classe qui appelle les vraies fonctions TypeScript via l'API REST bridge.
+    Cette classe fait le pont entre l'agent Python et vos fonctions existantes.
+    """
+    
+    def __init__(self):
+        self.api_base_url = CRYPTO_BRIDGE_URL
+        
+    async def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+        """
+        Fait un appel HTTP vers l'API TypeScript bridge.
+        """
+        url = f"{self.api_base_url}{endpoint}"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                if method.upper() == 'GET':
+                    async with session.get(url) as response:
+                        result = await response.json()
+                        response.raise_for_status()
+                        return result
+                else:
+                    async with session.post(url, json=data) as response:
+                        result = await response.json()
+                        response.raise_for_status()
+                        return result
+                        
+        except aiohttp.ClientError as e:
+            logger.error(f"Erreur de connexion à l'API TypeScript: {e}")
+            return {
+                "success": False,
+                "error": f"Connexion à l'API impossible: {str(e)}"
+            }
+        except Exception as e:
+            logger.error(f"Erreur lors de l'appel API: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}"
+            }
+    
+    async def vault_deposit(self, vault_address: str, asset_address: str, decimals: int, user_address: str, amount: float) -> Dict[str, Any]:
+        """
+        Appelle votre fonction depositToVault TypeScript.
+        """
+        logger.info(f"🏦 Appel API TypeScript pour dépôt vault: {amount} tokens dans {vault_address}")
+        
+        data = {
+            "vaultAddress": vault_address,
+            "assetAddress": asset_address,
+            "decimals": decimals,
+            "userAddress": user_address,
+            "amount": amount
+        }
+        
+        result = await self._make_request("POST", "/vault/deposit", data)
+        
+        if result.get("success"):
+            logger.info(f"✅ Dépôt vault réussi via API TypeScript: {result.get('transactionHash', 'N/A')}")
+            return {
+                "success": True,
+                "transaction_hash": result.get("transactionHash"),
+                "expected_shares": result.get("expectedShares"),
+                "vault_address": vault_address,
+                "amount_deposited": amount,
+                "message": f"Dépôt de {amount} tokens dans le vault {vault_address} exécuté avec succès !",
+                "api_result": result
+            }
+        else:
+            logger.error(f"❌ Échec du dépôt vault via API: {result.get('error', 'Erreur inconnue')}")
+            return {
+                "success": False,
+                "error": result.get("error", "Erreur inconnue"),
+                "message": f"Échec du dépôt de {amount} tokens dans le vault"
+            }
+    
+    async def vault_withdraw(self, vault_address: str, asset_decimals: int, user_address: str, amount: float) -> Dict[str, Any]:
+        """
+        Appelle votre fonction withdrawFromVault TypeScript.
+        """
+        logger.info(f"💰 Appel API TypeScript pour retrait vault: {amount} tokens de {vault_address}")
+        
+        data = {
+            "vaultAddress": vault_address,
+            "assetDecimals": asset_decimals,
+            "userAddress": user_address,
+            "amount": amount
+        }
+        
+        result = await self._make_request("POST", "/vault/withdraw", data)
+        
+        if result.get("success"):
+            logger.info(f"✅ Retrait vault réussi via API TypeScript: {result.get('transactionHash', 'N/A')}")
+            return {
+                "success": True,
+                "transaction_hash": result.get("transactionHash"),
+                "shares_used": result.get("sharesUsed"),
+                "vault_address": vault_address,
+                "amount_withdrawn": amount,
+                "message": f"Retrait de {amount} tokens du vault {vault_address} exécuté avec succès !",
+                "api_result": result
+            }
+        else:
+            logger.error(f"❌ Échec du retrait vault via API: {result.get('error', 'Erreur inconnue')}")
+            return {
+                "success": False,
+                "error": result.get("error", "Erreur inconnue"),
+                "message": f"Échec du retrait de {amount} tokens du vault"
+            }
+    
+    async def vault_redeem(self, vault_address: str, user_address: str, shares: float) -> Dict[str, Any]:
+        """
+        Appelle votre fonction redeemFromVault TypeScript.
+        """
+        logger.info(f"🔄 Appel API TypeScript pour rachat shares: {shares} shares de {vault_address}")
+        
+        data = {
+            "vaultAddress": vault_address,
+            "userAddress": user_address,
+            "shares": shares
+        }
+        
+        result = await self._make_request("POST", "/vault/redeem", data)
+        
+        if result.get("success"):
+            logger.info(f"✅ Rachat shares réussi via API TypeScript: {result.get('transactionHash', 'N/A')}")
+            return {
+                "success": True,
+                "transaction_hash": result.get("transactionHash"),
+                "assets_received": result.get("assetsReceived"),
+                "vault_address": vault_address,
+                "shares_redeemed": shares,
+                "message": f"Rachat de {shares} shares du vault {vault_address} exécuté avec succès !",
+                "api_result": result
+            }
+        else:
+            logger.error(f"❌ Échec du rachat shares via API: {result.get('error', 'Erreur inconnue')}")
+            return {
+                "success": False,
+                "error": result.get("error", "Erreur inconnue"),
+                "message": f"Échec du rachat de {shares} shares du vault"
+            }
+    
+    async def get_vault_info(self, vault_address: str) -> Dict[str, Any]:
+        """
+        Appelle votre fonction getVaultInfo TypeScript.
+        """
+        logger.info(f"📊 Appel API TypeScript pour infos vault: {vault_address}")
+        
+        result = await self._make_request("GET", f"/vault/info/{vault_address}")
+        
+        if result.get("success"):
+            logger.info(f"✅ Infos vault récupérées via API TypeScript pour {vault_address}")
+            return {
+                "success": True,
+                "vault_address": vault_address,
+                "vault_info": result.get("vaultInfo", {}),
+                "message": f"Informations du vault {vault_address} récupérées",
+                "api_result": result
+            }
+        else:
+            logger.error(f"❌ Échec récupération infos vault via API: {result.get('error', 'Erreur inconnue')}")
+            return {
+                "success": False,
+                "error": result.get("error", "Erreur inconnue"),
+                "message": f"Impossible de récupérer les infos du vault {vault_address}"
+            }
+    
+    async def get_user_portfolio(self, user_address: str) -> Dict[str, Any]:
+        """
+        Appelle votre fonction getUserActiveVaults TypeScript.
+        """
+        logger.info(f"💼 Appel API TypeScript pour portefeuille: {user_address}")
+        
+        result = await self._make_request("GET", f"/vault/portfolio/{user_address}")
+        
+        if result.get("success"):
+            logger.info(f"✅ Portefeuille récupéré via API TypeScript pour {user_address}")
+            return {
+                "success": True,
+                "user_address": user_address,
+                "active_vaults": result.get("activeVaults", []),
+                "vault_count": result.get("vaultCount", 0),
+                "message": f"Portefeuille de {user_address} récupéré: {result.get('vaultCount', 0)} vault(s)",
+                "api_result": result
+            }
+        else:
+            logger.error(f"❌ Échec récupération portefeuille via API: {result.get('error', 'Erreur inconnue')}")
+            return {
+                "success": False,
+                "error": result.get("error", "Erreur inconnue"),
+                "message": f"Impossible de récupérer le portefeuille de {user_address}"
+            }
+
 # === 3. CLASSE D'INTELLIGENCE ARTIFICIELLE ===
 
 class FlowCryptoAI:
@@ -107,15 +311,22 @@ class FlowCryptoAI:
         - stake : staking de tokens (paramètres: amount, validator)
         - swap : échange de tokens (paramètres: from_token, to_token, amount)
         - balance : vérification de solde (paramètres: wallet_address)
+        - vault : opérations sur les vaults (paramètres: vault_action="deposit/withdraw/redeem/info/portfolio", vault_address, amount, shares)
         - conversation : discussion générale, questions, salutations.
         - unknown : intention vraiment pas claire.
         
         RÈGLES :
-        - Si c'est une ACTION crypto, action_type = "stake"/"swap"/"balance".
+        - Si c'est une ACTION crypto, action_type = "stake"/"swap"/"balance"/"vault".
         - Si c'est une conversation, action_type = "conversation".
         - Incluis TOUJOURS un champ "user_response" avec une réponse naturelle et amicale.
-        - Extrait les paramètres (amount, validator, tokens, wallet_address) à partir de toute la conversation.
-        - Les montants doivent être des nombres (float), les noms de tokens/validators en minuscules, les adresses wallet doivent commencer par 0x.
+        - Extrait les paramètres à partir de toute la conversation.
+        - Les montants doivent être des nombres (float), les adresses doivent commencer par 0x.
+        
+        EXEMPLES VAULT :
+        - "dépose 100 tokens dans le vault 0x123" -> vault_action="deposit", vault_address="0x123", amount=100.0
+        - "retire 50 tokens du vault" -> vault_action="withdraw", amount=50.0
+        - "montre mon portefeuille" -> vault_action="portfolio"
+        - "infos sur le vault 0x456" -> vault_action="info", vault_address="0x456"
         
         EXEMPLE DE JSON DE SORTIE :
         {
@@ -143,7 +354,7 @@ class FlowCryptoAI:
             response = await asyncio.to_thread(
                 self.client.chat.completions.create,
                 model="gpt-4o-mini",
-                messages=messages_for_api,
+                messages=messages_for_api,  # Type ignoré pour compatibilité
                 temperature=0.1,
                 max_tokens=500,
                 response_format={"type": "json_object"}
@@ -187,9 +398,11 @@ class FlowCryptoAgent:
         self.ai = FlowCryptoAI(api_key)
         self.pending_actions: Dict[str, ParsedAction] = {}
         self.conversation_histories: Dict[str, List[Dict[str, str]]] = {}
+        self.crypto_functions = CryptoFunctions()  # ✨ Nouvelle instance pour les vraies fonctions
         
         logger.info(f"Agent '{self.agent.name}' initialisé avec l'adresse : {self.agent.address}")
         logger.info(f"Serveur HTTP démarré sur http://127.0.0.1:{port}")
+        logger.info(f"🔗 Bridge API TypeScript configuré sur : {CRYPTO_BRIDGE_URL}")
 
         os.makedirs(CRYPTO_FUNCTIONS_DIR, exist_ok=True)
         self.initialize_typescript_functions()
@@ -244,10 +457,85 @@ class FlowCryptoAgent:
                 return ActionResponse(success=False, message="Action non trouvée ou expirée.")
 
             if request.confirmed:
-                logger.info(f"Action {request.action_id} confirmée par {request.user_id}.")
-                function_call = self.generate_function_call(action)
-                response_msg = f"Parfait ! Votre action '{action.action_type.value}' a été confirmée et est en cours d'exécution. Appel de fonction : `{function_call}`"
-                response = ActionResponse(success=True, message=response_msg, function_call=function_call)
+                logger.info(f"🚀 Exécution confirmée de l'action {action.action_type.value}")
+                
+                # ✨ EXÉCUTION DE LA VRAIE FONCTION SELON LE TYPE
+                try:
+                    if action.action_type == ActionType.VAULT:
+                        vault_action = action.parameters.get('vault_action', 'deposit')
+                        
+                        if vault_action == 'deposit':
+                            result = await self.crypto_functions.vault_deposit(
+                                vault_address=action.parameters.get('vault_address', '0x'),
+                                asset_address=action.parameters.get('asset_address', '0x'),
+                                decimals=action.parameters.get('decimals', 18),
+                                user_address=request.user_id,  # ou une vraie adresse
+                                amount=action.parameters.get('amount', 0)
+                            )
+                        elif vault_action == 'withdraw':
+                            result = await self.crypto_functions.vault_withdraw(
+                                vault_address=action.parameters.get('vault_address', '0x'),
+                                asset_decimals=action.parameters.get('decimals', 18),
+                                user_address=request.user_id,
+                                amount=action.parameters.get('amount', 0)
+                            )
+                        elif vault_action == 'redeem':
+                            result = await self.crypto_functions.vault_redeem(
+                                vault_address=action.parameters.get('vault_address', '0x'),
+                                user_address=request.user_id,
+                                shares=action.parameters.get('shares', 0)
+                            )
+                        elif vault_action == 'info':
+                            result = await self.crypto_functions.get_vault_info(
+                                vault_address=action.parameters.get('vault_address', '0x')
+                            )
+                        elif vault_action == 'portfolio':
+                            result = await self.crypto_functions.get_user_portfolio(
+                                user_address=request.user_id
+                            )
+                        else:
+                            result = {"success": False, "message": f"Action vault '{vault_action}' non supportée"}
+                    
+                    elif action.action_type == ActionType.STAKE:
+                        # Pour les autres actions, vous pouvez ajouter d'autres fonctions ici
+                        result = {
+                            "success": True,
+                            "message": f"Staking de {action.parameters.get('amount')} FLOW avec {action.parameters.get('validator')} (fonction à implémenter)"
+                        }
+                    
+                    elif action.action_type == ActionType.SWAP:
+                        # Pour les swaps, vous pouvez ajouter votre fonction de swap ici
+                        result = {
+                            "success": True,
+                            "message": f"Swap de {action.parameters.get('amount')} {action.parameters.get('from_token')} vers {action.parameters.get('to_token')} (fonction à implémenter)"
+                        }
+                    
+                    else:
+                        result = {"success": False, "message": "Type d'action non supporté"}
+                    
+                    # Préparer la réponse selon le résultat
+                    if result["success"]:
+                        response_msg = f"🎉 Excellent ! {result['message']}"
+                        if "transaction_hash" in result:
+                            response_msg += f"\n\n📋 Transaction ID: `{result['transaction_hash']}`"
+                        
+                        response = ActionResponse(
+                            success=True, 
+                            message=response_msg,
+                            function_result=json.dumps(result, indent=2)
+                        )
+                    else:
+                        response = ActionResponse(
+                            success=False,
+                            message=f"❌ {result.get('message', 'Erreur lors de l execution')}"
+                        )
+                        
+                except Exception as e:
+                    logger.error(f"Erreur lors de l'exécution de l'action: {e}")
+                    response = ActionResponse(
+                        success=False,
+                        message=f"❌ Erreur technique lors de l'exécution: {str(e)}"
+                    )
             else:
                 logger.info(f"Action {request.action_id} annulée par {request.user_id}.")
                 response = ActionResponse(success=True, message="Action annulée. N'hésitez pas si vous avez besoin d'autre chose !")
@@ -307,7 +595,12 @@ class FlowCryptoAgent:
         pass
 
     async def execute_typescript_function(self, function_call: str, action: ParsedAction) -> Dict[str, Any]:
-        return {"success": True, "message": "Simulation d'exécution réussie", "output": "{}"}
+        # NOUVEAU : Appel réel aux fonctions TypeScript via HTTP
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{CRYPTO_BRIDGE_URL}/execute", json={"function_call": function_call}) as resp:
+                if resp.status != 200:
+                    return {"success": False, "message": "Erreur lors de l'appel de la fonction TypeScript."}
+                return await resp.json()
 
     def run(self):
         """Lance le cycle de vie de l'agent."""
