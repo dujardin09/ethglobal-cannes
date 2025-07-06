@@ -429,13 +429,26 @@ class FlowCryptoAgent:
 
             parsed_action, _ = await self.ai.analyze_message(history)
             
-            if parsed_action.action_type in [ActionType.CONVERSATION, ActionType.UNKNOWN] or parsed_action.confidence < 0.7:
+            # Log pour déboguer
+            logger.info(f"Action détectée: {parsed_action.action_type.value}, Confiance: {parsed_action.confidence:.2f}")
+            logger.info(f"Paramètres: {parsed_action.parameters}")
+            
+            # Logique améliorée : être plus permissif avec les confirmations
+            # Actions critiques qui nécessitent toujours une confirmation
+            critical_actions = [ActionType.STAKE, ActionType.SWAP, ActionType.VAULT]
+            
+            if parsed_action.action_type in critical_actions:
+                logger.info(f"Action critique détectée - confirmation requise")
+                response = await self.process_action(parsed_action, request.user_id)
+            elif parsed_action.action_type in [ActionType.CONVERSATION, ActionType.UNKNOWN] or parsed_action.confidence < 0.3:
+                logger.info(f"Action classée comme conversation ou faible confiance - pas de confirmation")
                 response = ActionResponse(
                     success=True,
                     message=parsed_action.user_response,
                     requires_confirmation=False
                 )
             else:
+                logger.info(f"Action nécessite une confirmation - appel à process_action")
                 response = await self.process_action(parsed_action, request.user_id)
             
             history.append({"role": "assistant", "content": response.message})
@@ -566,9 +579,13 @@ class FlowCryptoAgent:
                         if "transaction_hash" in result:
                             response_msg += f"\n\n📋 Transaction ID: `{result['transaction_hash']}`"
                         
+                        # Générer le function_call pour le formatage
+                        function_call = self.generate_function_call(action)
+                        
                         response = ActionResponse(
                             success=True, 
                             message=response_msg,
+                            function_call=function_call,
                             function_result=json.dumps(result, indent=2)
                         )
                     else:
