@@ -42,7 +42,7 @@ MAX_HISTORY_LENGTH = 10
 CRYPTO_FUNCTIONS_DIR = "crypto_functions"
 
 # --- Configuration API TypeScript Bridge ---
-CRYPTO_BRIDGE_URL = "http://localhost:3002/api"
+CRYPTO_BRIDGE_URL = "http://localhost:3003/api"
 
 # --- Configuration OpenAI ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
