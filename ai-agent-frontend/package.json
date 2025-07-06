@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:agent": "node test-agent-integration.js",
-    "test:confirmation": "node test-confirmation.js"
+    "test:confirmation": "node test-confirmation.js",
+    "test:action-id": "node test-action-id.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
