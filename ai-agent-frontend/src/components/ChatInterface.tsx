@@ -52,7 +52,7 @@ export default function ChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-200 bg-transparent">
+    <div className="flex flex-col bg-transparent" style={{height: 'calc(100vh - 150px)'}}>
       {/* Chat Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-6 shadow-lg">
         <div className="flex items-center justify-between">

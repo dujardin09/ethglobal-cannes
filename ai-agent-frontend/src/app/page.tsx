@@ -94,7 +94,7 @@ export default function Home() {
 
           {/* Right Panel - Chat Interface */}
           <div className="lg:col-span-2 fade-in-up" style={{animationDelay: '0.2s'}}>
-            <div className="glass rounded-2xl shadow-2xl h-full overflow-hidden border border-purple-500/30">
+            <div className="glass rounded-2xl shadow-2xl overflow-hidden border border-purple-500/30">
               <ChatInterface
                 onSendMessage={handleSendMessage}
                 onConfirmAction={confirmAction}
