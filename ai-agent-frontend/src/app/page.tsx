@@ -67,21 +67,24 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Network Status Banner */}
-      <div className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="glass-light border-b border-purple-500/20 px-6 py-4">
         <div className="container mx-auto flex items-center justify-between">
           <NetworkStatusIndicator />
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            AI DeFi Agent - {user?.loggedIn ? 'Connected' : 'Disconnected'}
+          <div className="flex items-center space-x-3">
+            <div className={`w-2 h-2 rounded-full ${user?.loggedIn ? 'bg-green-400 glow' : 'bg-red-400'}`}></div>
+            <span className="text-sm text-slate-300 font-medium">
+              AI DeFi Agent - {user?.loggedIn ? 'Connected' : 'Disconnected'}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-6rem)]">
+      <div className="container mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[calc(100vh-8rem)]">
           {/* Left Panel - Wallet & DeFi Operations */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 fade-in-up">
             <WalletConnection />
             <DefiOperationsPanel 
               userAddress={user?.addr}
@@ -90,8 +93,8 @@ export default function Home() {
           </div>
 
           {/* Right Panel - Chat Interface */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-lg h-full">
+          <div className="lg:col-span-2 fade-in-up" style={{animationDelay: '0.2s'}}>
+            <div className="glass rounded-2xl shadow-2xl h-full overflow-hidden border border-purple-500/30">
               <ChatInterface
                 onSendMessage={handleSendMessage}
                 onConfirmAction={confirmAction}

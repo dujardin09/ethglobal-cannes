@@ -119,19 +119,19 @@ export default function DefiOperationsPanel({
   };
 
   return (
-    <div className={cn("bg-white rounded-lg shadow-lg", className)}>
+    <div className={cn("glass rounded-2xl shadow-2xl border border-purple-500/30", className)}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">DeFi Operations</h2>
-        <p className="text-sm text-gray-600">
+      <div className="p-6 border-b border-slate-600/30">
+        <h2 className="text-2xl font-bold text-slate-100 mb-2">DeFi Operations</h2>
+        <p className="text-sm text-slate-400">
           Quick access to common DeFi operations on Flow
         </p>
       </div>
 
       {/* Quick Actions */}
       <div className="p-6">
-        <h3 className="text-lg font-medium text-gray-800 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <h3 className="text-lg font-semibold text-slate-200 mb-6">Quick Actions</h3>
+        <div className="grid grid-cols-2 gap-4">
           {OPERATION_TYPES.map((operation) => {
             const Icon = operation.icon;
             return (
@@ -140,31 +140,32 @@ export default function DefiOperationsPanel({
                 onClick={() => handleQuickAction(operation.id)}
                 disabled={!userAddress || !operation.apiReady}
                 className={cn(
-                  "p-4 border-2 rounded-lg text-left transition-all duration-200 hover:shadow-md relative",
+                  "p-5 border-2 rounded-xl text-left transition-all duration-200 hover:shadow-lg relative group",
                   userAddress && operation.apiReady 
                     ? getColorClasses(operation.color) 
-                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed",
+                    : "bg-slate-800/50 text-slate-500 border-slate-700/50 cursor-not-allowed",
                   (!userAddress || !operation.apiReady) && "opacity-50"
                 )}
               >
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{operation.title}</span>
+                    <Icon className="w-6 h-6" />
+                    <span className="font-semibold">{operation.title}</span>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
                     operation.apiReady 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-gray-100 text-gray-500'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   }`}>
                     {operation.status}
                   </span>
                 </div>
-                <p className="text-xs opacity-75 mb-1">{operation.description}</p>
+                <p className="text-sm opacity-75 mb-2 leading-relaxed">{operation.description}</p>
                 <p className="text-xs opacity-60">{operation.example}</p>
                 {operation.apiReady && (
-                  <div className="mt-2 text-xs text-green-600 font-medium">
-                    ✓ API Ready
+                  <div className="mt-3 text-xs text-green-400 font-semibold flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    API Ready
                   </div>
                 )}
               </button>
@@ -173,8 +174,11 @@ export default function DefiOperationsPanel({
         </div>
 
         {!userAddress && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-700">
+          <div className="mt-6 p-4 glass-light border border-amber-500/30 rounded-xl">
+            <p className="text-sm text-amber-300 flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.99-.833-2.773 0L3.04 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
               Connect your wallet to access DeFi operations
             </p>
           </div>
@@ -183,22 +187,22 @@ export default function DefiOperationsPanel({
 
       {/* Recent Operations */}
       {userAddress && recentOperations.length > 0 && (
-        <div className="p-6 border-t border-gray-200">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">Recent Operations</h3>
+        <div className="p-6 border-t border-slate-600/30">
+          <h3 className="text-lg font-semibold text-slate-200 mb-4">Recent Operations</h3>
           <div className="space-y-3">
             {recentOperations.map((operation) => (
               <div
                 key={operation.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-4 glass-light rounded-xl"
               >
                 <div className="flex items-center space-x-3">
                   {getStatusIcon(operation.status)}
                   <div>
-                    <p className="font-medium text-sm capitalize">
+                    <p className="font-semibold text-sm capitalize text-slate-200">
                       {operation.type}
                       {operation.amount && ` • ${operation.amount}`}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-400">
                       {operation.status === 'pending' && operation.estimatedGas && (
                         `Est. gas: ${operation.estimatedGas}`
                       )}
@@ -212,7 +216,7 @@ export default function DefiOperationsPanel({
                 {operation.transactionId && operation.status === 'confirmed' && (
                   <button
                     onClick={() => window.open(`https://flowscan.org/transaction/${operation.transactionId}`, '_blank')}
-                    className="text-blue-500 hover:text-blue-600"
+                    className="text-purple-400 hover:text-purple-300 transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </button>
