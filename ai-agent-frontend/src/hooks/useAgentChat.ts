@@ -19,6 +19,7 @@ export function useAgentChat(): UseAgentChatReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const connectionTested = useRef(false);
+  const currentActionIdRef = useRef<string | null>(null);
 
   const addMessage = useCallback((content: string, sender: 'user' | 'agent', type: 'text' | 'defi-action' = 'text', defiAction?: any) => {
     const message: Message = {
@@ -50,6 +51,7 @@ export function useAgentChat(): UseAgentChatReturn {
         // Si une confirmation est requise, stocker l'action_id
         if (response.requires_confirmation && response.action_id) {
           setPendingActionId(response.action_id);
+          currentActionIdRef.current = response.action_id;
           console.log('🔔 Confirmation requise pour action:', response.action_id);
         } else {
           // Vérifier si le message contient des indices de confirmation même si requires_confirmation est false
@@ -66,9 +68,11 @@ export function useAgentChat(): UseAgentChatReturn {
           
           if (needsConfirmation && response.action_id) {
             setPendingActionId(response.action_id);
+            currentActionIdRef.current = response.action_id;
             console.log('🔔 Confirmation détectée dans le message pour action:', response.action_id);
           } else {
             setPendingActionId(null);
+            currentActionIdRef.current = null;
           }
         }
 
@@ -106,12 +110,18 @@ export function useAgentChat(): UseAgentChatReturn {
   }, [addMessage]);
 
   const confirmAction = useCallback(async (confirmed: boolean) => {
-    if (!pendingActionId) return;
+    const actionId = currentActionIdRef.current;
+    if (!actionId) {
+      console.error('❌ Aucune action en attente de confirmation');
+      addMessage("Aucune action en attente de confirmation.", 'agent');
+      return;
+    }
 
+    console.log('🔔 Confirmation de l\'action:', actionId, 'avec confirmed:', confirmed);
     setIsLoading(true);
 
     try {
-      const response: ActionResponse = await agentAPI.confirmAction(pendingActionId, confirmed);
+      const response: ActionResponse = await agentAPI.confirmAction(actionId, confirmed);
 
       if (response.success) {
         // Ajouter la réponse de confirmation
@@ -135,6 +145,7 @@ export function useAgentChat(): UseAgentChatReturn {
 
         // Réinitialiser l'action en attente
         setPendingActionId(null);
+        currentActionIdRef.current = null;
       } else {
         addMessage(
           "Erreur lors de la confirmation de l'action. Veuillez réessayer.",
@@ -150,7 +161,7 @@ export function useAgentChat(): UseAgentChatReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [pendingActionId, addMessage]);
+  }, [addMessage]);
 
   const testConnection = useCallback(async () => {
     try {
@@ -181,6 +192,7 @@ export function useAgentChat(): UseAgentChatReturn {
   const clearMessages = useCallback(() => {
     setMessages([]);
     setPendingActionId(null);
+    currentActionIdRef.current = null;
   }, []);
 
   // Test automatique de la connexion au premier rendu

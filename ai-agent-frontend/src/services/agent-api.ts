@@ -85,13 +85,22 @@ class AgentAPIService {
   }
 
   async confirmAction(actionId: string, confirmed: boolean): Promise<ActionResponse> {
+    console.log('🔔 Envoi de confirmation:', { actionId, confirmed, userId: this.userId });
+    
     const message: ConfirmationMessage = {
       action_id: actionId,
       confirmed,
       user_id: this.userId
     };
 
-    return this.makeRequest<ActionResponse>('/confirm', message, 'ConfirmationMessage');
+    try {
+      const response = await this.makeRequest<ActionResponse>('/confirm', message, 'ConfirmationMessage');
+      console.log('🔔 Réponse de confirmation:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Erreur lors de la confirmation:', error);
+      throw error;
+    }
   }
 
   // Méthode pour tester la connexion à l'agent
