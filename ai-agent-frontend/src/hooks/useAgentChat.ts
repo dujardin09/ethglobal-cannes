@@ -125,19 +125,17 @@ export function useAgentChat(): UseAgentChatReturn {
       const response: ActionResponse = await agentAPI.confirmAction(actionId, confirmed);
 
       if (response.success) {
-        // Ajouter la réponse de confirmation
-        addMessage(response.message, 'agent');
-
-        // Si une fonction a été exécutée, formater le résultat
-        if (response.function_call && response.function_result) {
+        // Si une fonction a été exécutée, formater le résultat et remplacer le message
+        if (response.function_result) {
           console.log('🔔 Formatage du résultat avec GPT-4o-mini...');
           
-          // Détecter le type d'action à partir du function_call
+          // Détecter le type d'action à partir du message ou du function_call
           let actionType = 'unknown';
-          if (response.function_call.includes('stake')) actionType = 'stake';
-          else if (response.function_call.includes('swap')) actionType = 'swap';
-          else if (response.function_call.includes('vault')) actionType = 'vault';
-          else if (response.function_call.includes('balance')) actionType = 'balance';
+          const messageLower = response.message.toLowerCase();
+          if (messageLower.includes('stake') || messageLower.includes('staking')) actionType = 'stake';
+          else if (messageLower.includes('swap')) actionType = 'swap';
+          else if (messageLower.includes('vault')) actionType = 'vault';
+          else if (messageLower.includes('balance')) actionType = 'balance';
 
           // Formater le résultat via GPT-4o-mini
           const formattedResult = await resultFormatter.formatResult({
@@ -147,12 +145,16 @@ export function useAgentChat(): UseAgentChatReturn {
           });
 
           if (formattedResult.success) {
+            // Remplacer complètement le message par le résultat formaté
             addMessage(formattedResult.formattedMessage, 'agent');
           } else {
             // Fallback si le formatage échoue
             const simpleResult = resultFormatter.formatSimpleResult(actionType, response.function_result);
             addMessage(simpleResult, 'agent');
           }
+        } else {
+          // Si pas de function_result, afficher le message normal
+          addMessage(response.message, 'agent');
         }
 
         // Réinitialiser l'action en attente
