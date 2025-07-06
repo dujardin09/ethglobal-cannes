@@ -1,3 +1,4 @@
+// Types pour les messages de chat
 export interface Message {
   id: string;
   content: string;
@@ -6,10 +7,13 @@ export interface Message {
   type?: 'text' | 'transaction' | 'defi-action';
   transactionId?: string;
   defiAction?: {
-    type: 'swap' | 'stake' | 'lend' | 'borrow';
+    type: 'swap' | 'stake' | 'lend' | 'borrow' | 'vault' | 'function_call' | 'function_execution';
     details: Record<string, unknown>;
   };
 }
+
+// Ré-export des types de l'agent
+export * from './agent';
 
 export interface FlowUser {
   loggedIn: boolean;

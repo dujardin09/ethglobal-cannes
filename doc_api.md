@@ -17,7 +17,7 @@ L'interaction avec l'agent se fait via des requêtes HTTP POST vers un unique en
 ### **Informations Générales**
 
 *   **URL de base de l'Agent :** `http://127.0.0.1:8001` (ou l'URL où l'agent est déployé)
-*   **Endpoint Principal :** `/submit`
+*   **Endpoints :** `/talk` (messages) et `/confirm` (confirmations)
 *   **Méthode HTTP :** `POST`
 *   **Format des Données :** `application/json`
 
@@ -39,11 +39,11 @@ Le dialogue avec l'agent suit un cycle requête/réponse simple mais peut inclur
 
 ### **Endpoints de l'API**
 
-#### 1. Envoyer un Message ou une Confirmation
+#### 1. Envoyer un Message
 
-C'est l'unique endpoint pour toute communication avec l'agent. Le type de message envoyé (`UserMessage` ou `ConfirmationMessage`) détermine comment l'agent le traite.
+Endpoint pour envoyer un message à l'agent.
 
-*   **URL :** `/submit`
+*   **URL :** `/talk`
 *   **Méthode :** `POST`
 *   **Headers :**
     *   `Content-Type: application/json`
@@ -88,7 +88,7 @@ C'est l'unique endpoint pour toute communication avec l'agent. Le type de messag
 | `content` | string | Oui         | Le message textuel de l'utilisateur (ex: "Je veux staker 100 FLOW").      |
 | `user_id` | string | Oui         | Un identifiant unique et persistant pour la session de l'utilisateur.     |
 
-**Exemple de requête `POST /submit` avec `UserMessage` :**
+**Exemple de requête `POST /talk` avec `UserMessage` :**
 ```json
 // Headers
 {
@@ -113,7 +113,7 @@ C'est l'unique endpoint pour toute communication avec l'agent. Le type de messag
 | `confirmed`   | boolean | Oui         | `true` si l'utilisateur confirme l'action, `false` s'il l'annule.            |
 | `user_id`     | string  | Oui         | Le même `user_id` que celui de la session en cours.                          |
 
-**Exemple de requête `POST /submit` avec `ConfirmationMessage` :**
+**Exemple de requête `POST /confirm` avec `ConfirmationMessage` :**
 ```json
 // Headers
 {
