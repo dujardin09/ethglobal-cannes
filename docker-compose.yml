@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Main application with all services
+  ethglobal-app:
+    build: .
+    ports:
+      - "3000:3000"    # Next.js frontend
+      - "3003:3003"    # Vault backend
+      - "8001:8001"    # Python agent
+    environment:
+      # Flow Configuration
+      - NEXT_PUBLIC_FLOW_NETWORK=testnet
+      - NEXT_PUBLIC_ACCESS_NODE_URL=https://rest-testnet.onflow.org
+      - NEXT_PUBLIC_DISCOVERY_WALLET=https://fcl-discovery.onflow.org/testnet/authn
+      - NEXT_PUBLIC_DISCOVERY_AUTHN_ENDPOINT=https://fcl-discovery.onflow.org/testnet/authn
+      - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=2f5a5eba86e7e893eb6c92170c026fbb
+      # Add your OpenAI API key here
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}
+      # Backend configuration
+      - RPC_URL=https://mainnet.evm.nodes.onflow.org
+      - PRIVATE_KEY=${PRIVATE_KEY:-}
+    # volumes:
+      # You can mount additional configuration files here if needed
+      # - ./.env.local:/app/ai-agent-frontend/.env.local:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: ethglobal-network
