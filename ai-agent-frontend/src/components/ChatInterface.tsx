@@ -173,8 +173,14 @@ export default function ChatInterface({
                 {pendingActionId && message.sender === 'agent' && (
                   message.content.includes('Confirmation requise') || 
                   message.content.includes('Confirmez-vous') ||
+                  message.content.includes('Confirm') ||
+                  message.content.includes('confirmation') ||
                   message.content.includes('⚠️') ||
-                  message.content.includes('Répondez à l\'endpoint /confirm')
+                  message.content.includes('Répondez à l\'endpoint /confirm') ||
+                  message.content.includes('Do you confirm') ||
+                  message.content.includes('Stake') ||
+                  message.content.includes('Vault') ||
+                  message.content.includes('Swap')
                 ) && (
                   <ConfirmationButtons
                     onConfirm={() => onConfirmAction?.(true)}
