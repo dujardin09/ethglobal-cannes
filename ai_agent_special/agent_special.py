@@ -49,8 +49,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("La variable d'environnement OPENAI_API_KEY doit être définie.")
 
-# Vérification que la clé API est bien une chaîne
-assert isinstance(OPENAI_API_KEY, str), "OPENAI_API_KEY doit être une chaîne de caractères"
+# Assurer que la clé API est bien une chaîne non-nulle
+assert OPENAI_API_KEY is not None and isinstance(OPENAI_API_KEY, str), "OPENAI_API_KEY doit être une chaîne de caractères non vide"
 
 # --- Config Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -293,6 +293,254 @@ class CryptoFunctions:
                 "error": result.get("error", "Erreur inconnue"),
                 "message": f"Impossible de récupérer le portefeuille de {user_address}"
             }
+    
+    # === FONCTIONS DE SWAP ===
+    
+    async def get_available_tokens(self) -> Dict[str, Any]:
+        """
+        Récupère la liste des tokens disponibles pour le swap.
+        """
+        logger.info(f"🔍 Récupération des tokens disponibles via l'API de swap")
+        
+        # Utiliser l'API de swap du frontend au lieu du bridge TypeScript
+        swap_api_url = "http://localhost:3000/api"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{swap_api_url}/tokens") as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("tokens"):
+                        logger.info(f"✅ {len(result['tokens'])} tokens disponibles récupérés")
+                        return {
+                            "success": True,
+                            "tokens": result["tokens"],
+                            "message": f"{len(result['tokens'])} tokens disponibles pour le swap"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "Aucun token trouvé",
+                            "message": "Aucun token disponible pour le swap"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des tokens: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": "Impossible de récupérer les tokens disponibles"
+            }
+    
+    async def get_user_balances(self, user_address: str) -> Dict[str, Any]:
+        """
+        Récupère les balances de tokens d'un utilisateur.
+        """
+        logger.info(f"💰 Récupération des balances pour: {user_address}")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{swap_api_url}/tokens/balances?userAddress={user_address}") as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("balances"):
+                        logger.info(f"✅ Balances récupérées pour {user_address}")
+                        return {
+                            "success": True,
+                            "balances": result["balances"],
+                            "metadata": result.get("metadata", {}),
+                            "message": f"Balances récupérées pour {user_address}"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "Aucune balance trouvée",
+                            "message": f"Impossible de récupérer les balances pour {user_address}"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des balances: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": f"Impossible de récupérer les balances pour {user_address}"
+            }
+    
+    async def get_swap_quote(self, token_in_address: str, token_out_address: str, amount_in: str) -> Dict[str, Any]:
+        """
+        Obtient un devis de swap entre deux tokens.
+        """
+        logger.info(f"📊 Demande de devis swap: {amount_in} de {token_in_address} vers {token_out_address}")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        data = {
+            "tokenInAddress": token_in_address,
+            "tokenOutAddress": token_out_address,
+            "amountIn": amount_in
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{swap_api_url}/swap/quote", json=data) as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("quote"):
+                        quote = result["quote"]
+                        logger.info(f"✅ Devis obtenu: {quote['amountOut']} tokens de sortie")
+                        return {
+                            "success": True,
+                            "quote": quote,
+                            "message": f"Devis de swap obtenu: {quote['amountIn']} {quote['tokenIn']['symbol']} → {quote['amountOut']} {quote['tokenOut']['symbol']}"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": result.get("error", "Impossible de générer le devis"),
+                            "message": "Impossible d'obtenir un devis pour ce swap"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de la demande de devis: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": "Impossible d'obtenir un devis de swap"
+            }
+    
+    async def execute_swap(self, quote_id: str, user_address: str, slippage_tolerance: float = 0.5) -> Dict[str, Any]:
+        """
+        Exécute un swap en utilisant un devis existant.
+        """
+        logger.info(f"🔄 Exécution du swap {quote_id} pour {user_address} avec slippage {slippage_tolerance}%")
+        
+        swap_api_url = "http://localhost:3000/api"
+        
+        data = {
+            "quoteId": quote_id,
+            "userAddress": user_address,
+            "slippageTolerance": slippage_tolerance
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{swap_api_url}/swap/execute", json=data) as response:
+                    result = await response.json()
+                    response.raise_for_status()
+                    
+                    if result.get("transaction"):
+                        transaction = result["transaction"]
+                        logger.info(f"✅ Swap exécuté avec succès: {transaction.get('id', 'N/A')}")
+                        return {
+                            "success": True,
+                            "transaction": transaction,
+                            "transaction_id": transaction.get("id"),
+                            "transaction_hash": transaction.get("hash"),
+                            "status": transaction.get("status"),
+                            "message": f"Swap exécuté avec succès ! Transaction ID: {transaction.get('id', 'N/A')}"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": result.get("error", "Échec de l'exécution"),
+                            "message": "Échec de l'exécution du swap"
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Erreur lors de l'exécution du swap: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur API: {str(e)}",
+                "message": "Erreur lors de l'exécution du swap"
+            }
+    
+    async def perform_complete_swap(self, token_in_symbol: str, token_out_symbol: str, amount_in: str, user_address: str, slippage_tolerance: float = 0.5) -> Dict[str, Any]:
+        """
+        Effectue un swap complet en une seule fonction : récupère les tokens, obtient un devis et exécute le swap.
+        """
+        logger.info(f"🚀 Début du swap complet: {amount_in} {token_in_symbol} → {token_out_symbol} pour {user_address}")
+        
+        try:
+            # 1. Récupérer les tokens disponibles
+            tokens_result = await self.get_available_tokens()
+            if not tokens_result["success"]:
+                return tokens_result
+            
+            tokens = tokens_result["tokens"]
+            
+            # 2. Trouver les adresses des tokens par leurs symboles
+            token_in = None
+            token_out = None
+            
+            for token in tokens:
+                if token["symbol"].upper() == token_in_symbol.upper():
+                    token_in = token
+                if token["symbol"].upper() == token_out_symbol.upper():
+                    token_out = token
+            
+            if not token_in:
+                return {
+                    "success": False,
+                    "error": f"Token {token_in_symbol} non trouvé",
+                    "message": f"Le token {token_in_symbol} n'est pas disponible pour le swap"
+                }
+            
+            if not token_out:
+                return {
+                    "success": False,
+                    "error": f"Token {token_out_symbol} non trouvé",
+                    "message": f"Le token {token_out_symbol} n'est pas disponible pour le swap"
+                }
+            
+            # 3. Vérifier les balances de l'utilisateur
+            balances_result = await self.get_user_balances(user_address)
+            if balances_result["success"]:
+                user_balance = balances_result["balances"].get(token_in["address"], "0")
+                # Nettoyer les données mock si présentes
+                if user_balance.startswith("MOCK_"):
+                    user_balance = user_balance.replace("MOCK_", "")
+                
+                if float(user_balance) < float(amount_in):
+                    return {
+                        "success": False,
+                        "error": f"Balance insuffisante",
+                        "message": f"Balance insuffisante: {user_balance} {token_in_symbol} disponible, {amount_in} requis"
+                    }
+            
+            # 4. Obtenir un devis
+            quote_result = await self.get_swap_quote(token_in["address"], token_out["address"], amount_in)
+            if not quote_result["success"]:
+                return quote_result
+            
+            quote = quote_result["quote"]
+            
+            # 5. Exécuter le swap
+            execute_result = await self.execute_swap(quote["id"], user_address, slippage_tolerance)
+            
+            if execute_result["success"]:
+                return {
+                    "success": True,
+                    "quote": quote,
+                    "transaction": execute_result["transaction"],
+                    "transaction_id": execute_result["transaction_id"],
+                    "transaction_hash": execute_result["transaction_hash"],
+                    "message": f"Swap réussi ! {amount_in} {token_in_symbol} → {quote['amountOut']} {token_out_symbol}. Transaction: {execute_result['transaction_id']}"
+                }
+            else:
+                return execute_result
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du swap complet: {e}")
+            return {
+                "success": False,
+                "error": f"Erreur: {str(e)}",
+                "message": "Erreur lors du swap complet"
+            }
 
 # === 3. CLASSE D'INTELLIGENCE ARTIFICIELLE ===
 
@@ -348,7 +596,10 @@ class FlowCryptoAI:
             return ParsedAction(ActionType.UNKNOWN, 0.0, {}, "", "Historique vide."), ""
 
         last_user_message = history[-1]['content']
-        messages_for_api = [{"role": "system", "content": self.system_prompt}] + history
+        # Convertir l'historique au format attendu par OpenAI
+        messages_for_api = [{"role": "system", "content": self.system_prompt}]
+        for msg in history:
+            messages_for_api.append({"role": msg["role"], "content": msg["content"]})
 
         try:
             response = await asyncio.to_thread(
@@ -564,11 +815,22 @@ class FlowCryptoAgent:
                         }
                     
                     elif action.action_type == ActionType.SWAP:
-                        # Pour les swaps, vous pouvez ajouter votre fonction de swap ici
-                        result = {
-                            "success": True,
-                            "message": f"Swap de {action.parameters.get('amount')} {action.parameters.get('from_token')} vers {action.parameters.get('to_token')} (fonction à implémenter)"
-                        }
+                        # ✨ EXÉCUTION RÉELLE DU SWAP avec vos API
+                        from_token = action.parameters.get('from_token', '')
+                        to_token = action.parameters.get('to_token', '')
+                        amount = action.parameters.get('amount', 0)
+                        slippage = action.parameters.get('slippage', 0.5)
+                        
+                        logger.info(f"🔄 Début du swap: {amount} {from_token} → {to_token}")
+                        
+                        # Utiliser la fonction de swap complet
+                        result = await self.crypto_functions.perform_complete_swap(
+                            token_in_symbol=from_token,
+                            token_out_symbol=to_token,
+                            amount_in=str(amount),
+                            user_address=request.user_id,
+                            slippage_tolerance=slippage
+                        )
                     
                     else:
                         result = {"success": False, "message": "Type d'action non supporté"}
