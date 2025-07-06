@@ -532,9 +532,13 @@ class FlowCryptoAgent:
                         if "transaction_hash" in result:
                             response_msg += f"\n\n📋 Transaction ID: `{result['transaction_hash']}`"
                         
+                        # Générer le function_call pour le formatage
+                        function_call = self.generate_function_call(action)
+                        
                         response = ActionResponse(
                             success=True, 
                             message=response_msg,
+                            function_call=function_call,
                             function_result=json.dumps(result, indent=2)
                         )
                     else:
