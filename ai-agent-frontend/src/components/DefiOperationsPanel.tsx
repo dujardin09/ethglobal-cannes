@@ -27,7 +27,9 @@ const OPERATION_TYPES = [
     description: 'Exchange one token for another',
     icon: ArrowRightLeft,
     color: 'blue',
-    example: 'Swap FLOW for USDC'
+    example: 'Swap FLOW for USDC',
+    apiReady: true,
+    status: 'Active'
   },
   {
     id: 'stake',
@@ -35,7 +37,9 @@ const OPERATION_TYPES = [
     description: 'Earn rewards by staking your tokens',
     icon: PiggyBank,
     color: 'green',
-    example: 'Stake FLOW to earn rewards'
+    example: 'Stake FLOW to earn rewards',
+    apiReady: false,
+    status: 'Coming Soon'
   },
   {
     id: 'lend',
@@ -43,7 +47,9 @@ const OPERATION_TYPES = [
     description: 'Lend your assets to earn interest',
     icon: TrendingUp,
     color: 'purple',
-    example: 'Lend USDC and earn APY'
+    example: 'Lend USDC and earn APY',
+    apiReady: false,
+    status: 'Coming Soon'
   },
   {
     id: 'borrow',
@@ -51,7 +57,9 @@ const OPERATION_TYPES = [
     description: 'Borrow assets against collateral',
     icon: CreditCard,
     color: 'orange',
-    example: 'Borrow USDC with FLOW collateral'
+    example: 'Borrow USDC with FLOW collateral',
+    apiReady: false,
+    status: 'Coming Soon'
   }
 ];
 
@@ -130,19 +138,35 @@ export default function DefiOperationsPanel({
               <button
                 key={operation.id}
                 onClick={() => handleQuickAction(operation.id)}
-                disabled={!userAddress}
+                disabled={!userAddress || !operation.apiReady}
                 className={cn(
-                  "p-4 border-2 rounded-lg text-left transition-all duration-200 hover:shadow-md",
-                  userAddress ? getColorClasses(operation.color) : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed",
-                  !userAddress && "opacity-50"
+                  "p-4 border-2 rounded-lg text-left transition-all duration-200 hover:shadow-md relative",
+                  userAddress && operation.apiReady 
+                    ? getColorClasses(operation.color) 
+                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed",
+                  (!userAddress || !operation.apiReady) && "opacity-50"
                 )}
               >
-                <div className="flex items-center space-x-3 mb-2">
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{operation.title}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-3">
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{operation.title}</span>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    operation.apiReady 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {operation.status}
+                  </span>
                 </div>
                 <p className="text-xs opacity-75 mb-1">{operation.description}</p>
                 <p className="text-xs opacity-60">{operation.example}</p>
+                {operation.apiReady && (
+                  <div className="mt-2 text-xs text-green-600 font-medium">
+                    ✓ API Ready
+                  </div>
+                )}
               </button>
             );
           })}

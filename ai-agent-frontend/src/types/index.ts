@@ -7,7 +7,7 @@ export interface Message {
   transactionId?: string;
   defiAction?: {
     type: 'swap' | 'stake' | 'lend' | 'borrow';
-    details: any;
+    details: Record<string, unknown>;
   };
 }
 

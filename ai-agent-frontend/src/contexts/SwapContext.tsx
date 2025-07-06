@@ -10,6 +10,11 @@ interface SwapContextType {
   currentQuote: SwapQuote | null;
   isLoadingQuote: boolean;
   isExecutingSwap: boolean;
+  networkMetadata: {
+    flowNetworkAvailable: boolean;
+    dataSource: 'blockchain' | 'mock';
+    lastUpdated?: string;
+  } | null;
   
   // Actions
   loadTokens: () => Promise<void>;
@@ -29,8 +34,19 @@ export function SwapProvider({ children }: { children: React.ReactNode }) {
   const [currentQuote, setCurrentQuote] = useState<SwapQuote | null>(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [isExecutingSwap, setIsExecutingSwap] = useState(false);
+  const [networkMetadata, setNetworkMetadata] = useState<{
+    flowNetworkAvailable: boolean;
+    dataSource: 'blockchain' | 'mock';
+    lastUpdated?: string;
+  } | null>(null);
+  
+  // Add loading states to prevent excessive API calls
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+  const [lastBalanceCheck, setLastBalanceCheck] = useState<number>(0);
 
   const loadTokens = useCallback(async () => {
+    setIsLoadingTokens(true);
     try {
       const response = await fetch('/api/tokens');
       const data = await response.json();
@@ -42,23 +58,41 @@ export function SwapProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error loading tokens:', error);
+    } finally {
+      setIsLoadingTokens(false);
     }
   }, []);
 
   const loadBalances = useCallback(async (userAddress: string) => {
+    // Prevent excessive API calls
+    const now = Date.now();
+    if (isLoadingBalances || now - lastBalanceCheck < 5000) return;
+
+    setIsLoadingBalances(true);
     try {
       const response = await fetch(`/api/tokens/balances?userAddress=${encodeURIComponent(userAddress)}`);
       const data = await response.json();
       
       if (response.ok) {
         setTokenBalances(data.balances);
+        // Update network metadata
+        if (data.metadata) {
+          setNetworkMetadata({
+            flowNetworkAvailable: data.metadata.flowNetworkAvailable,
+            dataSource: data.metadata.dataSource,
+            lastUpdated: data.metadata.lastUpdated
+          });
+        }
       } else {
         console.error('Error loading balances:', data.error);
       }
     } catch (error) {
       console.error('Error loading balances:', error);
+    } finally {
+      setIsLoadingBalances(false);
+      setLastBalanceCheck(Date.now());
     }
-  }, []);
+  }, [lastBalanceCheck, isLoadingBalances]);
 
   const getQuote = useCallback(async (
     tokenInAddress: string, 
@@ -190,6 +224,7 @@ export function SwapProvider({ children }: { children: React.ReactNode }) {
     currentQuote,
     isLoadingQuote,
     isExecutingSwap,
+    networkMetadata,
     loadTokens,
     loadBalances,
     getQuote,
