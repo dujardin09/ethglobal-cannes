@@ -465,17 +465,64 @@ class FlowCryptoAgent:
                         vault_action = action.parameters.get('vault_action', 'deposit')
                         
                         if vault_action == 'deposit':
-                            result = await self.crypto_functions.vault_deposit(
-                                vault_address=action.parameters.get('vault_address', '0x'),
-                                asset_address=action.parameters.get('asset_address', '0x'),
-                                decimals=action.parameters.get('decimals', 18),
-                                user_address=request.user_id,  # ou une vraie adresse
-                                amount=action.parameters.get('amount', 0)
-                            )
+                            # 🔧 CORRECTION: Récupérer d'abord les infos du vault pour obtenir l'asset address
+                            vault_address = action.parameters.get('vault_address', '0x')
+                            
+                            # Étape 1: Récupérer les infos du vault
+                            vault_info_result = await self.crypto_functions.get_vault_info(vault_address)
+                            
+                            if not vault_info_result.get("success"):
+                                result = {
+                                    "success": False,
+                                    "message": f"Impossible de récupérer les infos du vault {vault_address}: {vault_info_result.get('error', 'Erreur inconnue')}"
+                                }
+                            else:
+                                # Extraire les informations nécessaires
+                                vault_info = vault_info_result.get("vault_info", {})
+                                asset_info = vault_info.get("asset", {})
+                                vault_details = vault_info.get("vault", {})
+                                
+                                asset_address = asset_info.get("address")
+                                decimals = asset_info.get("decimals", 18)
+                                
+                                if not asset_address:
+                                    result = {
+                                        "success": False,
+                                        "message": f"Impossible de déterminer l'adresse de l'asset pour le vault {vault_address}"
+                                    }
+                                else:
+                                    logger.info(f"🔍 Vault {vault_address} -> Asset {asset_address} ({asset_info.get('symbol', 'Unknown')})")
+                                    
+                                    # Étape 2: Effectuer le dépôt avec les bonnes informations
+                                    result = await self.crypto_functions.vault_deposit(
+                                        vault_address=vault_address,
+                                        asset_address=asset_address,
+                                        decimals=decimals,
+                                        user_address=request.user_id,  # ou une vraie adresse
+                                        amount=action.parameters.get('amount', 0)
+                                    )
                         elif vault_action == 'withdraw':
+                            # Pour le retrait, on a aussi besoin des infos du vault pour les decimals
+                            vault_address = action.parameters.get('vault_address', '0x')
+                            
+                            logger.info(f"🔍 Récupération des infos du vault {vault_address} pour le retrait...")
+                            
+                            # Récupérer les infos du vault pour les decimals de l'asset
+                            vault_info_result = await self.crypto_functions.get_vault_info(vault_address)
+                            
+                            if vault_info_result.get("success"):
+                                asset_decimals = vault_info_result.get("vault_info", {}).get("asset", {}).get("decimals", 18)
+                                asset_symbol = vault_info_result.get("vault_info", {}).get("asset", {}).get("symbol", "Unknown")
+                                vault_name = vault_info_result.get("vault_info", {}).get("vault", {}).get("name", "Unknown Vault")
+                                
+                                logger.info(f"✅ Vault trouvé: {vault_name} -> Asset {asset_symbol} ({asset_decimals} decimals)")
+                            else:
+                                asset_decimals = 18  # Fallback
+                                logger.warning(f"⚠️ Impossible de récupérer les infos du vault, utilisation de 18 decimals par défaut")
+                            
                             result = await self.crypto_functions.vault_withdraw(
-                                vault_address=action.parameters.get('vault_address', '0x'),
-                                asset_decimals=action.parameters.get('decimals', 18),
+                                vault_address=vault_address,
+                                asset_decimals=asset_decimals,
                                 user_address=request.user_id,
                                 amount=action.parameters.get('amount', 0)
                             )

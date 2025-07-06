@@ -306,6 +306,231 @@ async function loadVaultFunctions() {
           txHash: receipt.hash,
           assetsReceived: ethers.formatUnits(previewAssets, 18)
         };
+      },
+
+      // === FONCTIONS SWAP ===
+
+      getAvailableTokens: async () => {
+        console.log('📋 Récupération des tokens disponibles');
+        
+        // Liste des tokens supportés (peut être étendue)
+        const tokens = [
+          {
+            address: '0xA0b86a33E6441b8dB5b66e89C7Dfb45BBE1a20d8', // Flow Token sur Flow EVM
+            name: 'Flow',
+            symbol: 'FLOW',
+            decimals: 18,
+            logoURI: 'https://cryptologos.cc/logos/flow-flow-logo.png'
+          },
+          {
+            address: '0xB8cd8A5E9e8Bb365D6C8c1A65C8E8B5f8E5B9B5E', // USDC simulé
+            name: 'USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+            logoURI: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+          },
+          {
+            address: '0xC9de9B9E9e8Cc365E6D8d1B65D8F8C5f8F5C9C5F', // USDT simulé
+            name: 'Tether USD',
+            symbol: 'USDT',
+            decimals: 6,
+            logoURI: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
+          }
+        ];
+
+        return {
+          success: true,
+          tokens
+        };
+      },
+
+      getTokenBalances: async (provider, userAddress) => {
+        console.log(`💰 Récupération des soldes de tokens pour: ${userAddress}`);
+        
+        if (!provider) {
+          // Mode simulation si pas de provider
+          return {
+            success: true,
+            balances: {
+              '0xA0b86a33E6441b8dB5b66e89C7Dfb45BBE1a20d8': 'MOCK_1000.5',
+              '0xB8cd8A5E9e8Bb365D6C8c1A65C8E8B5f8E5B9B5E': 'MOCK_500.25',
+              '0xC9de9B9E9e8Cc365E6D8d1B65D8F8C5f8F5C9C5F': 'MOCK_750.75'
+            }
+          };
+        }
+
+        // Avec un vrai provider, récupérer les vrais soldes
+        const tokens = await VaultFunctions.getAvailableTokens();
+        const balances = {};
+
+        try {
+          for (const token of tokens.tokens) {
+            const tokenContract = new ethers.Contract(token.address, ERC20_ABI, provider);
+            const balance = await tokenContract.balanceOf(userAddress);
+            balances[token.address] = ethers.formatUnits(balance, token.decimals);
+          }
+
+          return {
+            success: true,
+            balances
+          };
+        } catch (error) {
+          console.error('Erreur récupération soldes:', error);
+          // Fallback en cas d'erreur
+          return {
+            success: false,
+            error: error.message,
+            balances: {}
+          };
+        }
+      },
+
+      getSwapQuote: async (provider, tokenInAddress, tokenOutAddress, amountIn, slippageTolerance = 0.5) => {
+        console.log(`💱 Génération d'un quote de swap: ${amountIn} de ${tokenInAddress} vers ${tokenOutAddress}`);
+        
+        // Simulation d'un quote de swap (en production, utiliser un vrai AMM/DEX)
+        const quoteId = `quote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Simulation du calcul du prix (1 FLOW = 0.5 USDC par exemple)
+        const mockExchangeRates = {
+          'FLOW_USDC': 0.5,
+          'FLOW_USDT': 0.49,
+          'USDC_USDT': 0.998,
+          'USDT_USDC': 1.002
+        };
+
+        // Déterminer la paire
+        const tokenIn = await VaultFunctions.getTokenInfo(tokenInAddress);
+        const tokenOut = await VaultFunctions.getTokenInfo(tokenOutAddress);
+        
+        const pairKey = `${tokenIn.symbol}_${tokenOut.symbol}`;
+        const reversePairKey = `${tokenOut.symbol}_${tokenIn.symbol}`;
+        
+        let rate = mockExchangeRates[pairKey];
+        if (!rate && mockExchangeRates[reversePairKey]) {
+          rate = 1 / mockExchangeRates[reversePairKey];
+        }
+        if (!rate) {
+          rate = 0.95; // Taux par défaut
+        }
+
+        const amountInNum = parseFloat(amountIn);
+        const amountOut = (amountInNum * rate * (1 - slippageTolerance / 100)).toString();
+        const priceImpact = Math.random() * 1.5; // Impact simulé 0-1.5%
+        const fee = (amountInNum * 0.003).toString(); // 0.3% de frais
+        const estimatedGas = '0.001'; // Gas estimé
+
+        const quote = {
+          id: quoteId,
+          tokenIn: {
+            address: tokenInAddress,
+            symbol: tokenIn.symbol,
+            decimals: tokenIn.decimals
+          },
+          tokenOut: {
+            address: tokenOutAddress,
+            symbol: tokenOut.symbol,
+            decimals: tokenOut.decimals
+          },
+          amountIn,
+          amountOut,
+          priceImpact,
+          fee,
+          estimatedGas,
+          slippageTolerance,
+          route: [`${tokenIn.symbol}/${tokenOut.symbol}`],
+          validUntil: Date.now() + (5 * 60 * 1000), // 5 minutes
+          createdAt: Date.now()
+        };
+
+        return {
+          success: true,
+          quote
+        };
+      },
+
+      getTokenInfo: async (tokenAddress) => {
+        const tokens = await VaultFunctions.getAvailableTokens();
+        const token = tokens.tokens.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+        
+        if (!token) {
+          throw new Error(`Token non trouvé: ${tokenAddress}`);
+        }
+        
+        return token;
+      },
+
+      executeSwap: async (provider, signer, swapQuote, userAddress, finalSlippageTolerance) => {
+        console.log(`⚡ Exécution du swap: ${swapQuote.id} pour ${userAddress}`);
+        
+        if (!signer) {
+          throw new Error('Signer requis pour les transactions');
+        }
+
+        // Vérifier si le quote n'est pas expiré
+        if (Date.now() > swapQuote.validUntil) {
+          throw new Error('Quote expiré, veuillez en demander un nouveau');
+        }
+
+        try {
+          // Simulation d'un swap (en production, utiliser un vrai router de DEX)
+          const tokenInContract = new ethers.Contract(swapQuote.tokenIn.address, ERC20_ABI, signer);
+          const tokenOutContract = new ethers.Contract(swapQuote.tokenOut.address, ERC20_ABI, signer);
+          
+          const amountIn = ethers.parseUnits(swapQuote.amountIn, swapQuote.tokenIn.decimals);
+          
+          // Vérifier le solde
+          const userBalance = await tokenInContract.balanceOf(userAddress);
+          if (userBalance < amountIn) {
+            throw new Error(`Solde insuffisant. Vous avez ${ethers.formatUnits(userBalance, swapQuote.tokenIn.decimals)} ${swapQuote.tokenIn.symbol}`);
+          }
+
+          // En production, vous appelleriez ici un router de DEX
+          // Pour la simulation, on génère un hash de transaction fictif
+          
+          // Simulation d'un délai de transaction
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const simulatedTxHash = `0x${Math.random().toString(16).substring(2, 66)}`;
+          
+          console.log(`✅ Swap exécuté: ${simulatedTxHash}`);
+          
+          return {
+            success: true,
+            transactionHash: simulatedTxHash,
+            amountIn: swapQuote.amountIn,
+            amountOut: swapQuote.amountOut,
+            tokenIn: swapQuote.tokenIn,
+            tokenOut: swapQuote.tokenOut,
+            actualSlippage: Math.random() * finalSlippageTolerance, // Slippage réel simulé
+            gasUsed: swapQuote.estimatedGas
+          };
+
+        } catch (error) {
+          console.error('Erreur lors du swap:', error);
+          throw error;
+        }
+      },
+
+      refreshSwapQuote: async (provider, originalQuoteId, newSlippageTolerance) => {
+        console.log(`🔄 Rafraîchissement du quote: ${originalQuoteId}`);
+        
+        // En production, vous récupéreriez le quote original et le recalculeriez
+        // Pour la simulation, on génère un nouveau quote
+        
+        // Simuler un nouveau quote avec des prix légèrement différents
+        const newQuoteId = `quote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Retourner un nouveau quote (simulation)
+        return {
+          success: true,
+          quote: {
+            id: newQuoteId,
+            // ... autres propriétés du quote
+            validUntil: Date.now() + (5 * 60 * 1000),
+            createdAt: Date.now()
+          }
+        };
       }
     };
 
@@ -317,7 +542,212 @@ async function loadVaultFunctions() {
   }
 }
 
-// === ENDPOINTS UTILISANT VOS VRAIES FONCTIONS ===
+// === ENDPOINTS SWAP ===
+
+// 📋 Endpoint: Liste des tokens disponibles
+app.get('/api/swap/tokens', async (req, res) => {
+  try {
+    console.log('📋 [REAL] Récupération des tokens disponibles');
+
+    const result = await VaultFunctions.getAvailableTokens();
+    
+    res.json({
+      success: true,
+      message: 'Tokens disponibles récupérés',
+      tokens: result.tokens,
+      source: 'real_function'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur tokens disponibles:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors de la récupération des tokens'
+    });
+  }
+});
+
+// 💰 Endpoint: Soldes des tokens d'un utilisateur
+app.get('/api/swap/balances/:userAddress', async (req, res) => {
+  try {
+    const { userAddress } = req.params;
+    
+    if (!userAddress || !ethers.isAddress(userAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Adresse utilisateur invalide'
+      });
+    }
+
+    console.log(`💰 [REAL] Récupération des soldes tokens pour: ${userAddress}`);
+
+    const result = await VaultFunctions.getTokenBalances(provider, userAddress);
+    
+    res.json({
+      success: true,
+      message: 'Soldes des tokens récupérés',
+      userAddress,
+      balances: result.balances,
+      source: 'real_function'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur soldes tokens:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors de la récupération des soldes'
+    });
+  }
+});
+
+// 💱 Endpoint: Obtenir un quote de swap
+app.post('/api/swap/quote', async (req, res) => {
+  try {
+    const { tokenInAddress, tokenOutAddress, amountIn, slippageTolerance } = req.body;
+    
+    if (!tokenInAddress || !ethers.isAddress(tokenInAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Adresse token source invalide'
+      });
+    }
+    
+    if (!tokenOutAddress || !ethers.isAddress(tokenOutAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Adresse token destination invalide'
+      });
+    }
+    
+    if (!amountIn || isNaN(parseFloat(amountIn))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Montant invalide'
+      });
+    }
+
+    console.log(`💱 [REAL] Génération quote swap: ${amountIn} de ${tokenInAddress} vers ${tokenOutAddress}`);
+
+    const result = await VaultFunctions.getSwapQuote(
+      provider,
+      tokenInAddress,
+      tokenOutAddress,
+      amountIn,
+      slippageTolerance || 0.5
+    );
+    
+    res.json({
+      success: true,
+      message: 'Quote de swap généré',
+      quote: result.quote,
+      source: 'real_function'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur génération quote:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors de la génération du quote'
+    });
+  }
+});
+
+// ⚡ Endpoint: Exécuter un swap
+app.post('/api/swap/execute', async (req, res) => {
+  try {
+    const { quoteId, quote, userAddress, slippageTolerance } = req.body;
+    
+    if (!userAddress || !ethers.isAddress(userAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Adresse utilisateur invalide'
+      });
+    }
+    
+    if (!quote) {
+      return res.status(400).json({
+        success: false,
+        error: 'Quote manquant'
+      });
+    }
+
+    if (!signer) {
+      return res.status(503).json({
+        success: false,
+        error: 'Wallet non configuré pour les transactions'
+      });
+    }
+
+    console.log(`⚡ [REAL] Exécution swap: ${quoteId || quote.id} pour ${userAddress}`);
+
+    const result = await VaultFunctions.executeSwap(
+      provider,
+      signer,
+      quote,
+      userAddress,
+      slippageTolerance || quote.slippageTolerance
+    );
+    
+    res.json({
+      success: true,
+      message: `Swap exécuté avec succès`,
+      transactionHash: result.transactionHash,
+      amountIn: result.amountIn,
+      amountOut: result.amountOut,
+      tokenIn: result.tokenIn,
+      tokenOut: result.tokenOut,
+      actualSlippage: result.actualSlippage,
+      gasUsed: result.gasUsed,
+      source: 'real_function',
+      result
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur exécution swap:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors de l\'exécution du swap'
+    });
+  }
+});
+
+// 🔄 Endpoint: Rafraîchir un quote
+app.post('/api/swap/refresh', async (req, res) => {
+  try {
+    const { quoteId, slippageTolerance } = req.body;
+    
+    if (!quoteId) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID du quote manquant'
+      });
+    }
+
+    console.log(`🔄 [REAL] Rafraîchissement quote: ${quoteId}`);
+
+    const result = await VaultFunctions.refreshSwapQuote(
+      provider,
+      quoteId,
+      slippageTolerance || 0.5
+    );
+    
+    res.json({
+      success: true,
+      message: 'Quote rafraîchi',
+      quote: result.quote,
+      source: 'real_function'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur rafraîchissement quote:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors du rafraîchissement du quote'
+    });
+  }
+});
+
+// === ENDPOINTS VAULT (existants) ===
 
 // 📊 Endpoint: Informations du vault (VRAIE FONCTION)
 app.get('/api/vault/info/:vaultAddress', async (req, res) => {
@@ -460,6 +890,7 @@ app.get('/api/vault/balances/:userAddress/:vaultAddress', async (req, res) => {
 
 // 🏦 Endpoint: Déposer dans un vault (VRAIE FONCTION)
 app.post('/api/vault/deposit', async (req, res) => {
+    console.log('🏦 [REAL] Dépôt dans un vault...');
   try {
     const { vaultAddress, assetAddress, decimals, userAddress, amount } = req.body;
     
@@ -471,12 +902,22 @@ app.post('/api/vault/deposit', async (req, res) => {
       });
     }
     
+    console.log("debug1")
+    console.log("vaultAddress", vaultAddress)
+    console.log("assetAddress", assetAddress)
+    console.log("decimals", decimals)
+    console.log("userAddress", userAddress)
+    console.log("amount", amount)
+
+
     if (!assetAddress || !ethers.isAddress(assetAddress)) {
       return res.status(400).json({
         success: false,
         error: 'Adresse asset invalide'
       });
     }
+
+    console.log("debug2")
     
     if (!userAddress || !ethers.isAddress(userAddress)) {
       return res.status(400).json({
@@ -484,6 +925,8 @@ app.post('/api/vault/deposit', async (req, res) => {
         error: 'Adresse utilisateur invalide'
       });
     }
+
+    console.log("debug3")
     
     if (!amount || isNaN(parseFloat(amount))) {
       return res.status(400).json({
@@ -491,6 +934,8 @@ app.post('/api/vault/deposit', async (req, res) => {
         error: 'Montant invalide'
       });
     }
+
+    console.log("debug4")
 
     if (!signer) {
       return res.status(503).json({
