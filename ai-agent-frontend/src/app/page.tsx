@@ -6,6 +6,7 @@ import ChatInterface from '@/components/ChatInterface';
 import WalletConnection from '@/components/WalletConnection';
 import DefiOperationsPanel from '@/components/DefiOperationsPanel';
 import NetworkStatusIndicator from '@/components/NetworkStatusIndicator';
+import PendingActionIndicator from '@/components/PendingActionIndicator';
 import { DefiOperation } from '@/types';
 import { useAgentChat } from '@/hooks/useAgentChat';
 
@@ -105,6 +106,12 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Pending Action Indicator */}
+      <PendingActionIndicator 
+        isVisible={!!pendingActionId}
+        actionId={pendingActionId}
+      />
     </div>
   );
 }

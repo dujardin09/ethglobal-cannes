@@ -50,8 +50,26 @@ export function useAgentChat(): UseAgentChatReturn {
         // Si une confirmation est requise, stocker l'action_id
         if (response.requires_confirmation && response.action_id) {
           setPendingActionId(response.action_id);
+          console.log('🔔 Confirmation requise pour action:', response.action_id);
         } else {
-          setPendingActionId(null);
+          // Vérifier si le message contient des indices de confirmation même si requires_confirmation est false
+          const confirmationKeywords = [
+            'confirmation requise',
+            'confirmez-vous',
+            '⚠️',
+            'répondez à l\'endpoint /confirm'
+          ];
+          
+          const needsConfirmation = confirmationKeywords.some(keyword => 
+            response.message.toLowerCase().includes(keyword.toLowerCase())
+          );
+          
+          if (needsConfirmation && response.action_id) {
+            setPendingActionId(response.action_id);
+            console.log('🔔 Confirmation détectée dans le message pour action:', response.action_id);
+          } else {
+            setPendingActionId(null);
+          }
         }
 
         // Si une fonction a été appelée, l'afficher

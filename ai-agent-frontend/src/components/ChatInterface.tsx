@@ -160,7 +160,12 @@ export default function ChatInterface({
                 )}
 
                 {/* Confirmation Buttons */}
-                {pendingActionId && message.sender === 'agent' && message.content.includes('Confirmation requise') && (
+                {pendingActionId && message.sender === 'agent' && (
+                  message.content.includes('Confirmation requise') || 
+                  message.content.includes('Confirmez-vous') ||
+                  message.content.includes('⚠️') ||
+                  message.content.includes('Répondez à l\'endpoint /confirm')
+                ) && (
                   <ConfirmationButtons
                     onConfirm={() => onConfirmAction?.(true)}
                     onCancel={() => onConfirmAction?.(false)}
